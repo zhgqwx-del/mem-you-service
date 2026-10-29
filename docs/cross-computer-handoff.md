@@ -1,12 +1,12 @@
 # 跨电脑开发交接说明
 
-核对日期：2026-10-28（America/New_York）。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期：2026-10-28（America/Los_Angeles）；本机上下文恢复、验证与未完项见第8节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
 
 ## 1 当前到底交付了什么
 
 本仓库地址：<https://github.com/zhgqwx-del/mem-you-service>。
 
-本次开始检查时，`main` 与本地 `origin/main` 均指向 `56733d1`，工作区干净。该提交是现有设计/调研基线；这是交接开始时的本地引用快照。本轮新增的交接文件随Git版本分发；新电脑应核对实际分支、提交与远端同步状态，不固定退回这个提交。
+初次编写交接时，`main` 与本地 `origin/main` 均指向 `56733d1`，工作区干净。该提交是现有设计/调研基线；这是初次交接开始时的本地引用快照。交接文件随后在 `1e0f663` 中提交；本机最新核对见第8节。新电脑应核对实际分支、提交与远端同步状态，不固定退回旧提交。
 
 | 内容 | 交接时的真实状态 |
 |---|---|
@@ -81,7 +81,7 @@ Prompt能引导新会话恢复已保存的事实，不能恢复未记录的口�
 
 ## 5 哪些外部材料不会随本仓库迁移
 
-下面位置与摘要在2026-10-28只读核对。没有读取真实 `.env`、导出聊天或复制外部文件。
+下面位置与摘要来自初次交接时2026-10-28的只读核对，原电脑状态不代表当前电脑。没有读取真实 `.env`、导出聊天或复制外部文件。本机实际可用材料见第8节。
 
 ### 5.1 现有Agent项目：实际集成时另拉
 
@@ -128,7 +128,7 @@ git -C agent-service cat-file -t 5d38b2cd6307aab9c8dec2c475b1bebf886d8283
 
 只有复核产品原型或历史推导才需要另行传输这些文件。普通设计分析和独立服务开发可先用已保存的审计结论，缺原文件时明确“未重新核对原始材料”。demo含演示/mock数据，不是真实聊天导出或正式评测金标准。
 
-原文件目前仍在原目录，本轮未为其建立备份。需要保留的原始材料应通过你认可的文件传输/备份渠道另行保存；收到后校验SHA-256。macOS可用 `shasum -a 256 <文件路径>`，Linux可用 `sha256sum <文件路径>`，PowerShell可用 `Get-FileHash -Algorithm SHA256 <文件路径>`，按实际路径加引号。
+初次交接时原文件仍在原目录，未为其建立备份；本机核对未找到这两个原路径，未提供其他路径映射。需要保留的原始材料应通过你认可的文件传输/备份渠道另行保存；收到后校验SHA-256。macOS可用 `shasum -a 256 <文件路径>`，Linux可用 `sha256sum <文件路径>`，PowerShell可用 `Get-FileHash -Algorithm SHA256 <文件路径>`，按实际路径加引号。
 
 ### 5.3 开源研究快照：按需重新取得
 
@@ -172,3 +172,97 @@ LOCAL_SERVICE_STATE: <尚无实现 / 已建立本地开发环境>
 跨电脑前，把要带走的代码、文档、锁文件、配置样例和可公开fixture提交并推送；仅本地保存不会出现在新电脑。敏感配置、原始文件和运行数据按上面的独立渠道准备。返回原电脑时同样先检查两边分支和未提交修改，再同步。
 
 当前接续入口为04的D1–D4。D1建立基础合同与来源，用假RecordService和稳定operation夹具验证；D2召回与记忆；D3失效与完整接入；D4真实质量与P0容量。用户下一条具体需求决定本次推进哪一段；本说明不自动授权一次实现全部阶段。
+
+## 8 2026-10-28 本机认知核查记录
+
+本次需求：形成完整、准确且可追溯的项目认知，方便后续按需完善设计或开发；暂不启动开发。本节是当前文件与合同的核查摘要，不新增设计或通过结论。
+
+### 8.1 当前仓库与实际交付
+
+| 核对项 | 实际结果 |
+|---|---|
+| checkout | 当前工作目录为本仓库根目录；远程origin为 `https://github.com/zhgqwx-del/mem-you-service.git` |
+| 分支与提交 | `main`；HEAD与本地 `origin/main` 同为 `1e0f663c9ba7d5dc24639782de5032298906a3c0`；最近两次提交为交接文件和V1.2设计/调研基线 |
+| 同步边界 | 上述认知核查阶段未联网fetch/pull，不能据当时本地origin引用断言远端没有新提交；后续提交/推送按用户授权执行并核对实际结果 |
+| 开始时工作区 | 干净，无未跟踪文件；不存在 `.local/context.md` |
+| 文件实况 | Git管理25个文件：24个Markdown及 `.gitignore`；仓库工作文件仅根入口、docs和research，没有服务源码、manifest/锁文件、配置样例、Compose、迁移、运行脚本或测试/报告文件 |
+| 实现及验收 | 仍为设计V1.2修订1，服务尚未实现；没有可恢复的本服务数据库或现成评测数据包，没有已执行的合同/集成/中文效果/容量/恢复验收 |
+| 本轮变更 | 仅更新本文的历史时点说明及本节认知/验证/未完项；未启动工程、安装依赖或更改业务/API合同 |
+| Git交付状态 | 用户后续已授权提交并推送本文；上述HEAD为核查起点，交付提交以包含本记录的Git历史为准，远端可拉取状态以实际推送结果为准 |
+
+### 8.2 已恢复的认知与查证地图
+
+已核读根规则、完整交接Prompt、两级入口、00–07分册及research八份；两份废止方案仅作历史背景和迁移对照。后续以相应合同细节为准，下面只记录容易影响判断的关系。
+
+| 主题 | 当前认知 | 查证入口 |
+|---|---|---|
+| 产品目标 | 新短记录到来时，用有帮助的历史改善回应、工具参数或澄清，并允许不用历史、避免重复打扰；显式历史QA分数不能单独证明收益 | [整体入口](spec-v1/README.md)、[论文与评测研究](../research/papers-frontier-notes.md) |
+| 职责 | 产品/Agent持有原输入和执行journal；RecordService管正式条目、产品时间线及精确统计；MemoryService管获授权镜像、记忆证据、召回及失效。一次输入、多项事件、多张卡有不同身份 | [00职责与不变量](spec-v1/00-boundaries-and-invariants.md)、[03调用时序](spec-v1/03-agent-sequences-and-recovery.md) |
+| 身份与权威 | tenant/owner为授权空间，about entity为陈述对象；来源/group、正式条目、memory及其版本分开。user_reported、external_committed、agent_inferred依可信通道区分；确认、置信度、时间和语气另保留 | [01数据模型§2–5](spec-v1/01-data-model.md) |
+| 写入与更正 | 用户输入/Agent笔记可sync+CAS；正式镜像统一注册ordered_import，202仅接收，连续应用才有applied。实时与补采复用origin及planned source/group；不以latest CAS、相似文本或新ID覆盖/去重。更正同时限制关联原输入的旧断言 | [02公共合同与来源§2–3](spec-v1/02-api-contract.md)、[06身份规则§3](spec-v1/06-history-ingestion-and-repair.md) |
+| 记忆与人工保护 | 每条陈述保留精确版本支持及来源闭包；实际语义支持均required。显式remember/revise与自动派生共用coarse slot及schema通配guard，人工保护不免除源失效。首版同源同类多事件可保守给复合陈述或gap，正式业务事件仍各自保存 | 01§5/§7.3、06§7；[修订取舍](spec-v1/07-v1.2-review.md) |
+| 召回 | owner授权范围内近期/中文词法/dense/实体与类型字段融合，允许空包；词法实验基线为jieba搜索模式+BM25，dense为BGE-M3 1024维归一化表示，具体revision待冻结。前台不增加LLM规划或reflect。empty、degraded、未追上与失败分开 | [04检索与降级§1](spec-v1/04-evaluation-and-acceptance.md) |
+| 入模与一致性 | 每turn持久一次context决策；已确认且不依赖历史的路径可skip。当前输入不冒充历史。所有full正文读取，包括补查/分页结果，共用context/read_result依赖包；新step、依赖历史的工具执行、交付前在线validate全部仍在用的包，租约/通知不能替代 | 02§2.6/§6/§12、03§2–3 |
+| 授权与隐私 | 首发整源授权；混合主体/领域原文权限不足且无安全投影时拒返。非破坏使用策略与erase分开；Memory erase不自动删业务台账。本地不可查询、物理清理、消费者清理分别回执；无bundle/离线full宿主也可能有清理责任 | 00§6–8、02§10–14 |
+| 故障与恢复 | product commit、Outbox、Memory失效与consumer清理是跨系统流程。action fence逐项关闭，未知提交/付费结果先核对。erase/撤权先独立故障域ledger再本地gate；旧库恢复须先追平当前控制日志、授权、流及消费者门禁，不能让删除回退 | 03§3.3/§5–6、04§8 |
+| 历史依据 | Demo用于需求溯源且含mock；Agent/框架/论文研究提供带日期和版本的机制依据，不代表本服务已具备能力。自有来源模型与统一合同为基线，Hindsight/Mem0为可选效果对照，第三方框架不是首发前置 | [Demo审计](../research/demo-product-audit.md)、[框架研究](../research/memory-frameworks-notes.md)、[定向研究](../research/targeted-gaps-notes.md) |
+
+首发与阶段不能混同：
+
+- **A首发**：HTTP核心及一个点滴full_lifecycle适配器，含可靠输入journal、接入后稳定origin/来源计划、同身份重送、基础派生/人工保护、有序业务镜像、更正、持续原聊天删除/撤权、消费者清理及旧备份恢复门禁；history关闭不豁免生命周期。
+- **B可选**：仅已登记、有可信source plan的接入后会话，有界手工MySQL catch_up/backfill及可选的已有source修复。源当前性、完整分页、持续删除、预算、取消和恢复缺任一前置时，仅preview/隔离测试。
+- **C后置**：接入前历史bootstrap、自动发现/巡检、context主动repair、重抽/巩固等；search/facts、MCP、更多适配器、自动摘要、图、精细投影、在线双代索引及P1也分别验收。完整API目录不等于首发清单。
+- **D1–D4是A的交付顺序**：基础合同/来源 → 召回与记忆 → 失效与完整接入 → 真实质量、P0和恢复验收。D1或服务夹具通过都不等于A完成，未完成D3不能上线个人记忆。精确出口见04§9–10。
+
+### 8.3 本机外部材料与影响
+
+| 材料 | 本次核对 | 影响与边界 |
+|---|---|---|
+| agent-service | 原路径缺失，相邻 `../agent-service` 存在；HEAD为固定审计commit `5d38b2cd6307aab9c8dec2c475b1bebf886d8283`，该commit对象存在 | 已有限复核同版本源码，能补强接入边界认知；未执行集成或运行环境验证 |
+| Agent工作区 | `AGENTS.md`、`README.md`、`docs/PROGRESS.md`、`docs/operations/chat-h5.md`四份文档有已有未提交修改；已保留 | 不能沿用原机“工作区干净”结论；文档中的本机运行/验收陈述未独立复核，也不构成本项目执行授权 |
+| 原始demo与旧05设计 | 第5.2节两个原路径均缺失，未提供其他映射 | 可依仓库内审计与历史说明继续设计分析；本轮不能重验HTML交互、原文件完整性或SHA-256 |
+| 研究源码快照/在线资料 | 本轮未重新取得或联网核验 | 继承有日期/版本的静态依据；具体选型时再复核固定版本。部分研究仅核在线文档（如LangGraph），不能一概称固定源码审计 |
+| 数据、模型及预算 | 本仓库无运行数据、数据集、模型制品或实际预算配置；外部Agent私有环境未检查 | 不影响本次认知恢复；真实集成、效果、费用、容量及恢复验证尚未具备本轮证据 |
+
+Agent源码有限复核范围为其固定commit的 `packages/core/src/hooks/{middleware,lifecycle-types}.ts`、`packages/core/src/session/host.ts`、`examples/record-assistant/reference.ts`：memory-injection仍只拼静态prefix/append；model middleware限制messages不变；reference声明为单进程synthetic fixture并在turn外读取业务记录。它们不等于动态MemoryAdapter、持久journal或完整生命周期接入。未重审整个Agent，也未读取其私有运行证据、配置或真实密钥。
+
+### 8.4 实际执行的核查与结果
+
+以下为本轮实际使用的只读命令入口；两个仓库均未reset、切分支、安装、启动或运行模型。
+
+```sh
+pwd
+git status --short --branch
+git rev-parse --show-toplevel HEAD origin/main
+git log -5 --oneline --decorate
+git ls-files --stage
+rg --files -g '!node_modules' -g '!.git' -g '!dist' -g '!build' -g '!package-lock.json' -g '!pnpm-lock.yaml'
+git -C ../agent-service status --short --branch
+git -C ../agent-service rev-parse --show-toplevel HEAD
+git -C ../agent-service cat-file -t 5d38b2cd6307aab9c8dec2c475b1bebf886d8283
+git diff --check
+```
+
+另以临时内联Python 3标准库程序完成文件清点、Markdown文件链接目标检查、JSON解析及context示例hash核对；没有新增项目脚本或伪造服务测试命令。
+
+| 验证 | 实际结果及范围 |
+|---|---|
+| 文件与实现清点 | 25个受管理文件均已定位；仓库可见工作文件未发现源码/依赖/迁移/数据/运行报告 |
+| 相对文件链接 | 修改前24份Markdown中116个相对文件链接目标全部存在；修改后128个目标全部存在。此检查不验证标题锚点、外网可达性或技术内容正确性 |
+| 原机绝对链接 | 49处绝对路径引用的原路径均不存在；属于已知来源定位线索，保留历史路径。Agent按本机映射及固定commit复核上述有限范围，不能把其余引用一概算作已重验 |
+| 规格JSON | spec-v1的9份Markdown中共34个JSON代码块，全部可解析；均位于02 |
+| context字节示例 | canonical_injection可解析，根键恰为purpose/items/gaps，三字段与响应同名字段一致；确切UTF-8字节SHA-256与bundle_hash一致 |
+| 修改差异 | 提交前`git diff --check`通过；本轮本仓库改动仅本文，外部Agent四份原有文档修改保留 |
+| 未执行 | JSON Schema/HTTP合同测试、数据库/真实Agent集成、模型或识别效果、付费调用、压测、备份恢复/擦除演练均未执行。文档检查不替代这些验收 |
+
+### 8.5 未完项与下次接续
+
+本次认知恢复已完成，未发现必须现在变更合同才能继续的阻断项；这不等于穷尽设计缺陷或证明方案运行可行。后续由具体需求决定范围：
+
+1. **可以直接继续的分析**：按00–04及06适用条款复核特定产品场景、接口/状态机、接入或验收闭环；追溯取舍读05/07和对应研究。无需先恢复全部外部项目。
+2. **首次开发时再冻结的工程选择**：首发能力manifest、运行时/包管理器/数据库与扩展版本、DDL/JSON Schema、检索模型revision及词典/tokenizer摘要、独立control ledger载体与确认策略、配置和实际资源。公共语义已定义，不把这些机械化或工程交付误列为全部业务合同待定。
+3. **真实接入待交付**：Agent的动态MemoryAdapter、可靠journal/回执恢复、原生来源计划、生命周期Outbox/ACK、持久pending fence和消费者清理；RecordService及产品工具按独立职责对接。相邻Agent存在不代表这些已完成。
+4. **真实验收待建立**：版本化合成/授权脱敏fixture、100个owner时间线与至少600测试turn目标、封存金标准、固定reader/embedding/硬件与具名预算；P0的12万来源/5读2写RPS、质量门槛及RPO/RTO都是未实测目标，P1另行扩展。
+5. **按需补外部证据**：需要重验原型/旧设计时补原文件并校验摘要；需要选型时取得对应固定源码。它们缺失不阻塞当前仓库内的设计分析，不能据此宣称原材料或运行结果已复核。
+
+本次停在文档认知与交接更新。下一次仍先检查实际HEAD、工作区和文件，再按用户明确的设计或开发需求推进。
