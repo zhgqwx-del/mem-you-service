@@ -2,7 +2,7 @@
 
 调研日期：2026 年 10 月 26 日，美国东部时间。
 
-当前整体方案与开发入口是[独立记忆服务 V1.2 修订1整体方案与开发入口](docs/spec-v1/README.md)。已结合点滴 demo、现有 agent-service 和前期调研，细化服务边界、Agent 调用时序、数据模型、API、状态机、故障恢复及评测合同。本次[整体审查](docs/spec-v1/07-v1.2-review.md)收紧实时/离线同源、更正、删除和取消恢复，明确A首发与B/C后置切片。**本轮仅交付设计文档，尚未实现服务或执行运行验收。**
+当前整体方案与开发入口是[独立记忆服务 V1.2 修订2整体方案与开发入口](docs/spec-v1/README.md)。已结合点滴 demo、现有 agent-service 和前期调研，细化服务边界、Agent 调用时序、数据模型、API、状态机、故障恢复及评测合同。[整体审查记录](docs/spec-v1/07-v1.2-review.md)保留修订1取舍，并补记2026-10-28对必要约束、首次读取授权、擦除后有序消费、产品Outbox及验收口径的修订；A首发与B/C后置范围不变。**本轮仅交付设计文档，尚未实现服务或执行运行验收。**
 
 在其他电脑继续工作，请从[跨电脑开发交接说明](docs/cross-computer-handoff.md)开始，并使用[完整衔接 Prompt](docs/continuation-prompt.md)。根目录[AGENTS.md](AGENTS.md)提供项目指引；交接文档区分Git内材料、外部源码/原文件和待建立的运行环境。
 
@@ -22,9 +22,9 @@
 | [历史参考：点滴demo完备性分析](docs/点滴demo调用链与完备性补充.md) | 开发合同已废止；保留demo证据与当时的缺口分析，当前合同见V1.2 |
 | [七个 Agent 和 Harness 的实现研究](research/agent-systems-notes.md) | OpenCode、OpenClaw、Hermes、DeepSeek Harness、Codex、Harness²、OpenHarness 的读写触发、存储检索及源码入口 |
 | [开源记忆框架研究](research/memory-frameworks-notes.md) | MemGPT 与当前 Letta、Mem0、LangGraph/LangMem、Graphiti/Zep、Hindsight 的架构、边界和选型 |
-| [论文与前沿研究](research/papers-frontier-notes.md) | MemT 1.0、分层记忆、笔记演化、策略学习、主动记忆、过度个性化及评测 |
+| [论文与前沿研究](research/papers-frontier-notes.md) | MemT 1.0、分层记忆、策略学习、主动记忆及评测；§11补核Context Rot、前史敏感性与GRPO/Agentic RL |
 | [Demo 源码核对](research/demo-product-audit.md) | 输入、卡片、回顾、多主体、最新交互规则和演示数据边界 |
-| [定向补充研究](research/targeted-gaps-notes.md) | MemOS 接入与纠错、Mastra 观察式记忆、EverOS 的阶段可见性 |
+| [定向补充研究](research/targeted-gaps-notes.md) | MemOS 接入与纠错、Mastra、EverOS；§6补核Hy-Memory双过程、writer、SDK、CMB及与本合同的差距 |
 | [持久聊天摄取与补偿合同](docs/spec-v1/06-history-ingestion-and-repair.md) | V1.2新增：历史原消息补采、回填、修复、重抽、删除和预算 |
 | [agent-service聊天存储核查](research/chat-storage-audit.md) | 固定源码下MySQL、原消息、分页、终态、压缩及生命周期的可用能力与缺口 |
 | [Hermes/OpenClaw后台记忆专项](research/offline-memory-mechanisms.md) | background review、Dreaming、session-backfill的实际输入、触发和边界 |

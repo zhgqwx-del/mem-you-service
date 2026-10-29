@@ -1,8 +1,8 @@
 # 独立记忆服务 V1：API 与 Agent 接入合同
 
-版本：设计 V1.2 修订1，2026年10月27日整体审查修订。
+版本：设计 V1.2 修订2，2026年10月28日整体审查修订。
 
-状态：开发与验收基线设计，尚未实现。日期：2026-10-27。本文中的“必须”是拟实现合同；JSON 是协议样例，不代表当前已有接口。边界见 [00](00-boundaries-and-invariants.md)，对象定义见 [01](01-data-model.md)，运行时与恢复见 [03](03-agent-sequences-and-recovery.md)，验收见 [04](04-evaluation-and-acceptance.md)。
+状态：开发与验收基线设计，尚未实现。日期：2026-10-28（America/Los_Angeles）。本文中的“必须”是拟实现合同；JSON 是协议样例，不代表当前已有接口。边界见 [00](00-boundaries-and-invariants.md)，对象定义见 [01](01-data-model.md)，运行时与恢复见 [03](03-agent-sequences-and-recovery.md)，验收见 [04](04-evaluation-and-acceptance.md)。
 
 ## 1 服务边界与接入原则
 
@@ -54,7 +54,7 @@ capabilities只列实际启用feature；未列能力视为false，调用已定�
 | 时间点 | RFC 3339 string，含偏移，毫秒精度最多3位；服务生成的server_time/created_at等系统时间输出UTC。来源occurred/recorded输入时间可保留原偏移，并另存IANA timezone（最大64字节），不据UTC格式丢掉来源时区 |
 | `Occurred` | `{occurred_from?:timestamp或date,occurred_to?:timestamp或date,time_precision:enum,timezone:string,original_expression?:string,anchor_at?:timestamp,basis?:enum}`；precision=`unknown/day/minute/second/interval`。basis闭枚举=`user_explicit/client_selected/external_record/relative_resolved/inferred`，缺省inferred；服务仍校验source attestation，basis自报不能升级authority/confirmation或把推断变成已确认。day使用YYYY-MM-DD，不补00:00；unknown两个边界均空；interval半开且至少一侧已知；original_expression≤512字节；01给完整语义 |
 | `TimeRange` | `{from,to}`，左右可省略但不能同时缺失；半开区间 `[from,to)`，两者都有时必须from<to。查询缺to取本次snapshot.server_time，缺from取to前366天，实际边界在响应coverage中回显；显式查询窗最大366天，超出须分窗。grant的valid_time_range是授权约束，开放边界不按查询默认值截短 |
-| `Domain` | 注册 schema 的领域枚举，如 `health.weight`、`health.symptom`、`food`、`hydration`、`finance.expense`、`mood`、`personal.preference`；筛选最多 8 项。未知枚举 `422 SCHEMA_VALUE_INVALID` |
+| `Domain` | 注册schema的领域枚举，如health.weight、food、hydration、finance.expense、mood、personal.preference；显式查询筛选及单source/memory的domains最多8项，控制面grant可显式枚举1–32项。未知枚举422 SCHEMA_VALUE_INVALID；省略查询筛选不暗中截掉完整授权集 |
 | `Decimal` | 十进制定点字符串，最长 32 字节，禁止 NaN/Infinity；数值范围与单位由对应领域 schema 限制，不允许二进制浮点金额 |
 | 文本 | 单个 source 内容的 `text` 与结构化内容序列化合计最大 16 KiB；普通 query/cue 最大 4 KiB；reason 最大 512 字节；memory 文本最大 4 KiB |
 | 批量 | 批量写入最多 32 项，整请求最大 256 KiB；V1 单项写 API 不自动接受数组。`evidence:batchGet` 最多 32 项；批量操作另有逐项限制 |
@@ -194,7 +194,7 @@ tool_only_best_effort可不传consumer_context，此时响应不附usage_bundle�
 | `content.text` | string | active时与structured至少一项；与结构化内容合计≤16KiB；retracted可省略整个content且不回填旧正文 |
 | `content.structured` | `{schema_id:ID,schema_version:Version,data:object}` | 可选；服务注册 schema；data 不允许未定义字段 |
 | `source_metadata` | SchemaObject | 可选，仅允许source.input_metadata/version1，完整字段见01§6.2；与content.structured并列，可保留OCR/ASR/picker确认候选和授权媒体引用；最大8KiB，不能只传媒体触发识别，不进入memory/facts正文索引；confirmation自报不替代真实消息证明 |
-| `domains` | Domain[] | 必填，1–8；服务可缩窄，不能单靠此标签保护整段混合原文 |
+| `domains` | Domain[] | 必填，1–8；请求标签不证明全源域/主体标注完整，也不得降低服务/可信上游标签。首次向窄域/窄主体读取者交付原文/片段前须核对绑定本来源版本的完整标注或同步策略证明；未知则按00§6.1拒返或仅向owner_space且全部当前注册域已授权者交付，不等异步抽取补标签后再追溯 |
 | `recorded_at` / `timezone` | timestamp / IANA string | recorded_at可省略、默认服务接收时间并返回basis=service_received；timezone必填。提供上游recorded_at时未来/补记合法性由来源schema校验 |
 | `occurred` | Occurred | 可选；外部正式条目镜像应忠实携带上游已确认发生时间；未知不拿recorded_at代替 |
 | `external_record_ref` | `{system_id:ID,record_id:ID,external_version:string}` | source_kind 为 external_record 或 mode 为 ordered_import 时必填；external_version 1–128 字节、opaque |
@@ -203,9 +203,13 @@ tool_only_best_effort可不传consumer_context，此时响应不附usage_bundle�
 | `upstream_change` | `{stream_id:ID,stream_seq:Seq,event_id:ID}` | ordered_import 必填；sync 禁止。流身份必须匹配认证 importer |
 | `source_attestation` | opaque string | user_reported/external_committed 必须由可信宿主提供或由认证连接隐式证明；最长 2048，模型不可生成/看见；不得进入检索文本 |
 
-sync 原子完成来源 revision、有效性代际、最小事实覆盖/旧依赖失效与任务 Outbox，返回 `200 applied`。新建使用 source_version 1。后续派生失败不撤销已应用来源。ordered_import 先持久 inbox：未满足连续顺序返回 `202 accepted`、operation_id 与 `waiting_for_predecessor`；worker 按连续流应用后分配版本。重复 event_id 同 hash 回同 operation；同序号不同事件或内容返回冲突。不能取已见最大 seq 当连续水位。
+sync 原子完成来源 revision、有效性代际、最小事实覆盖/旧依赖失效与任务 Outbox，返回 `200 applied`。新建使用 source_version 1。后续派生失败不撤销已应用来源。ordered_import 先持久 inbox：未满足连续顺序返回 `202 accepted`、operation_id 与 `waiting_for_predecessor`；worker按连续流处理，source_applied实际新建/变更时分配版本，policy_suppressed无来源版本。重复 event_id 同 hash 回同 operation；同序号不同事件或内容返回冲突。不能取已见最大 seq 当连续水位。
 
 外部commit/correction的快速通知只加速投递同一个Outbox事件（同stream/seq/event_id/payload），并可等待其连续应用；不能另发sync写头或跳过前序。external_version不透明、不按字符串排序。跨产品提交与本服务门禁仍是saga，不因走同步网络调用而成为一个事务。
+
+ordered_import的applied回执及operation必填`import_outcome=source_applied|policy_suppressed`；accepted时省略。source_applied返回该事件实际应用或复用的source/version，是原操作回执，不保证当前仍可读；重放不得改用latest或返回失效正文，仍核当前授权。policy_suppressed仅适用于已验证事件命中可核对本地erase/owner历史抑制：同事务记录无正文消费与控制依据、推进连续水位，不生成source_version或派生，result_refs=[]，不返回旧正文。可返回write_token，但它仅证明事件按策略安全处理，不能据此取回被删来源。入站已知应抑制时不持久正文；缺序仍202等待，身份/同版本异hash/权限或控制证明异常仍拒绝或隔离，不能借抑制跳过。普通sync复活仍返回SOURCE_TOMBSTONED；合法有序事件不因此永久堵住无关后续事件。
+
+policy_suppressed仍核最小外部版本/hash与受信关联，执行下段及01§4.4的累计原断言失效/blocked origin门禁；只擦除镜像、未擦除raw时，后来的更正仍限制旧raw主张为historical_only，不能因丢弃新正文而继续发布旧值。只持久最小控制关联，不解除erase或重建新镜像。
 
 外部条目更正/撤回/删除应用时，同事务失效旧镜像及input_evidence_refs所指原断言，后者标historical_only而非改写原话。旧原输入worker即使晚完成也不得重新发布被替代主张。若无可靠片段映射，对同source_group、受影响主体/domain的原始断言保守限制当前使用并给gap，不能整组误删另一顿饭或另一宝宝。原输入尚未到达时先保存按稳定source/group定位的门禁，后到输入仍必须命中；不能因摄取先后顺序漏掉替代关系。完整规则见01。
 
@@ -283,7 +287,7 @@ conversation门禁只约束原聊天user_input lineage及依赖。独立有效ex
 | `source_refs` | `{source_id:ID,source_version:Version,field_paths?:string[]}[]` | 必填，通常1–8；每个field_paths最多16条、路径≤128字节且在注册schema中；agent_inferred的derived_insight/unresolved_item可空但需宿主会话出处 |
 | `session_ref` | `{session_id:ID,turn_id:ID}` | 允许无source_refs的推断/事项必填；服务登记agent_note出处，不能将会话内容伪装成用户陈述 |
 | `occurred` | Occurred | 可选；发生时间，未知可空；不能把recorded_at当作occurred |
-| `valid_from` / `valid_to` | timestamp或date | 可选；偏好/约束的有效期，to排他；未知开放范围不表示永远正确 |
+| `valid_from` / `valid_to` | timestamp或date | 可选；to排他。date仅在required来源闭包有唯一可靠已保存时区时接受，按本地日界归一并保存所用时区；无来源/未知/跨时区须传含偏移timestamp，歧义返回422 SCHEMA_VALUE_INVALID。详见01§2.3 |
 | `expires_at` | timestamp | 可选；仅按schema允许的过期策略，不能默认将长期约束按相关性过期 |
 
 服务校验来源有效性、版本和投影；稳定身份重放及受保护slot用于阻止同源重复发布，不将不同来源的两次相似饮水/喂奶事件合并。返回 `200 applied`，含 memory_version=1、write_token、支持来源与 `projection_status=provisional` 或 `supported`。来源替换后 memory 会失效或重建，不能永远引用旧 revision。
@@ -328,12 +332,14 @@ conversation门禁只约束原聊天user_input lineage及依赖。独立有效ex
 |---|---|---|
 | path `memory_id` | ID | 必填 |
 | `expected_memory_version` | Version | 必填，CAS |
-| `revision_kind` | enum `correction` / `state_change` / `retraction` | 必填；correction修正同一事实，state_change保留旧有效区间，retraction退出当前使用但不同于隐私物理删除 |
+| `revision_kind` | enum `correction` / `state_change` / `retraction` | 必填；correction修正同一事实；state_change保留旧有效区间用于受控审计/来源解释，valid_at不回放被替代旧头；retraction退出当前使用但不同于隐私物理删除 |
 | `replacement` | `{content,domains,source_refs,about_entity_id?,occurred?,valid_from?,valid_to?,expires_at?}` | correction/state_change必填；复用remember字段完整替换，不用任意JSON Patch；retraction禁止。memory_kind不能改变；about_entity_id省略=保持，显式改主体仅见下述受控纠正 |
 | `supporting_source_refs` | SourceRef[] | 必填，1–8；证明本次修订依据，新值不能仅靠旧事实来源 |
 | `reason_code` | enum `user_correction` / `source_revision` / `state_changed` / `unsupported_inference` | 必填；自由reason文本可选≤512字节 |
 
 原子提交版本 +1、旧 revision退出当前有效视图、依赖失效和任务；返回 `200 applied`。不得先让旧值与新值同时可见，异步任务不能覆盖较新版本。state_change有效期相接或重叠冲突按schema处理，禁止服务猜测边界。
+
+state_change不提供完整结构化历史状态视图：facts.valid_at只筛当前可用修订，先前真实状态可对仍有效且获授权的原来源取证；空投影不代表当时无偏好。replacement中的date有效期同§4及01§2.3，服务不从服务器时区猜生效点。
 
 correction/state_change在同一事务核对旧、新全部支持slot及schema通配guard，保留旧槽保护。新范围已有另一memory的当前头时返回409 MEMORY_SLOT_CONFLICT，沿用§4的引用限额及不可见处理；不自动合并、抢占或把两个memory迁到同一槽。调用者须解析目标并明确复用/修订已有头。
 
@@ -381,7 +387,7 @@ correction/state_change在同一事务核对旧、新全部支持slot及schema�
 | `purpose` | enum `respond_to_record` / `answer_history` / `resolve_reference` / `assist_correction` | 必填；影响召回及个性化策略，不改变grant |
 | `about_entity_id` | ID | 必填 |
 | `current_input` | `{text?:string,source_id?:ID,source_group_id?:ID}` | 必填且text/source_id至少一项；text≤4KiB。提供的source/group默认及强制从历史候选排除；模型不能取消排除 |
-| `domains` | Domain[] | 可选，缺省为grant允许且本purpose相关的领域，最多8；显式空数组非法 |
+| `domains` | Domain[] | 可选，显式筛选最多8；缺省作用于grant允许且本purpose相关的全部注册域（可超过8），不能静默只取前8；显式空数组非法 |
 | `time_range` | TimeRange | 可选；仅约束历史候选，不推断缺测日期 |
 | `time_basis` | enum `occurred` / `recorded_at` | 默认occurred；occurred按发生区间重叠，未知时间排除并返回gap；recorded_at按01定义的接收/记录时间，不代表发生时间 |
 | `read_after` | ReadAfter | 可选，见2.4；宿主有pending外部mutation时必须设置或停止受影响读 |
@@ -392,6 +398,8 @@ correction/state_change在同一事务核对旧、新全部支持slot及schema�
 | `degrade_policy` | enum `allow_safe_partial` / `require_planned_channels` | 默认allow_safe_partial；允许缺通道不允许旧版本、撤权或未满足read_after |
 
 计划通道由服务的固定查询策略按已发布release manifest、purpose及当前授权范围确定，不能由模型临时要求增加/移除以绕过严格模式。wire通道名称闭枚举为 `recent / lexical / vector / structured / profile_open_items`；未获权限或对当前purpose不适用的通道不进入计划，也不出现在missing_channels。
+
+本次授权/用途内的必要约束先独立核对完整性，不受普通候选top-k/6项偏好或160候选cap静默截断。约束及最低元数据无法装入token_budget、max_items或32KiB时返回422 TOKEN_BUDGET_TOO_SMALL，details.limit_kind为token_budget/max_items/content_bytes，不发布可用bundle；约束适用性/当前性无法核验时返回503 FRESHNESS_UNAVAILABLE，到deadline为504 FRESHNESS_TIMEOUT，即使allow_safe_partial也不能丢约束后交付正文。
 
 `require_planned_channels`要求本次所有计划通道完成。已知某计划通道不可用时返回 `503 PLANNED_CHANNEL_UNAVAILABLE`，error.details必填 `missing_channels`（1–5项、不重复的上述通道名）；未能在deadline前完成则返回 `504 DEADLINE_EXCEEDED`，details同样列明未完成通道。两者均不返回历史正文、canonical_injection或可用bundle。授权/read_after/失效检查失败仍优先使用各自错误，不借通道错误掩盖一致性缺口。
 
@@ -618,8 +626,8 @@ correction/state_change在同一事务核对旧、新全部支持slot及schema�
 | `filters` | `{field:string,op:enum,value:scalar\|scalar[]}[]` | 可选，最多8条；field为schema允许字段，≤128字节；op=`eq/in/lt/lte/gt/gte`；in最多20值，不支持任意表达式/跨表连接 |
 | `fields` | string[] | 必填，1–16项，schema与grant允许投影；ID/版本/来源引用始终附带；允许的发生时间meta字段为occurred_from/occurred_to/time_precision/timezone，以及仅明确point记录可非null的派生occurred_at；day/unknown禁止补00:00 |
 | `authority_kinds` | enum[] | 默认仅user_reported和external_committed；agent_inferred需显式请求且grant允许 |
-| `valid_at` | timestamp | 可选，查询状态陈述在该时刻是否有效；不是读取当时尚未更正的错误知识；V1无`known_at`时光回溯API |
-| `order_by` | enum `occurred_at_asc` / `occurred_at_desc` | 默认desc；相同时间按稳定memory_id排序 |
+| `valid_at` | timestamp | 可选，只对当前可用修订的有效区间过滤，不恢复state_change替代的旧头；空投影不证明当时无该状态，V1无known_at/任意旧revision读取API |
+| `order_by` | enum `occurred_at_asc` / `occurred_at_desc` | 缺省occurred_at_desc；枚举名称保留，实际只选择升降方向，排序键由time_basis决定。occurred用已知发生下界、recorded_at用来源记录时间；同键memory_id升序，未知发生下界末尾；cursor保持同一规则 |
 | `limit` / `cursor` | integer / opaque | 默认20，1–100；cursor十分钟有效，绑定查询与snapshot |
 | `read_after` / `deadline_ms` | ReadAfter / integer | 可选 / 默认1800、100–3000 |
 | `purpose` / `consumer_context` | 公共读取字段 | 见§2.6；每页单独usage_bundle，facts不返回historical_only旧主张 |
@@ -700,6 +708,8 @@ targets只允许：`{source_ids:[...]}`、`{source_group_ids:[...]}`、`{memory_
 
 source_group只是关联键，不自动授权操作所有组成员。服务展开targets后逐个检查动作权限；若包含未授权成员则整次拒绝，不部分执行，不回显隐藏成员或数量。不能让健康域Agent通过一个混合输入组删除财务记忆；需由具备完整目标权限的可信适配器处理。
 
+`resolved_targets`是有界范围说明，不承诺完整来源清单：结构仍用上述selector，ID数组最多32。source/group/owner请求可回显原selector；memory_ids的非破坏策略在operation内固定解析得到的canonical lineage，回执可仍回显memory_ids，后续不按变化后的memory头重新解析。仅当完整展开结果不超过32时，允许像下例返回全部source_ids；超过32就保留原group/owner/memory selector，不给截断样本或同步精确总数。实际执行/持续门禁始终覆盖完整的已授权范围，不因响应上限截断；operation查询同规则，回显仍须当前授权，不能借进度查询披露隐藏成员。
+
 erase无用户wire版本CAS：它针对明确稳定来源/group身份及全部版本，以独立ledger intent为隐私命令线性化点；内部owner/target gate用锁/CAS串行化。intent前后并发普通更正仍落入被删lineage，不因请求见到旧version而漏删。owner_scope表示清除该intent快照的历史，保持空间可继续使用；新真实用户输入须有可信宿主接收证明并进入新代际。历史backfill默认拒绝，需明确再授权的受控导入，不能靠更高stream_seq、改source_id或伪称新输入绕过旧历史抑制。清除可逆policy和普通内容编辑继续使用各自expected version CAS。
 
 三种模式语义：
@@ -736,7 +746,7 @@ erase在返回200 applied前必须先把删除intent持久到独立于主库恢�
 
 权限：`operation.read`，且与原操作同owner、可见授权投影；受限模型只可见自身会话允许的operation。无request body；path operation_id为ID。查询参数 `wait_ms` 默认0，0–10000，用于有界等待状态变化；`after_revision` 可选Version，wait只在revision变大或超时返回，不是消费者长轮询的替代。
 
-操作分离“请求接收/应用/派生/物理删除/消费者”进度。`accepted` 只证明inbox持久化，`applied`只证明本地canonical变更与失效生效，`completed`含该操作要求的后台步骤完成；普通remember不等待所有消费者。需要消费者清理的erase只有所声明强能力消费者全部ack后才能显示consumer_cleanup.complete。
+操作分离“请求接收/应用/派生/物理删除/消费者”进度。`accepted` 只证明inbox持久化，`applied`证明本地canonical变更/门禁生效，或有序导入已按policy_suppressed安全消费，须结合import_outcome判断是否产生可读来源；`completed`含该操作要求的后台步骤完成。普通remember不等待所有消费者。需要消费者清理的erase只有所声明强能力消费者全部ack后才能显示consumer_cleanup.complete。
 
 请求示例：`GET /v1/operations/mop_erase_17?wait_ms=1000&after_revision=2`。
 
@@ -886,7 +896,7 @@ full注册同时订阅其grant的owner/entity/domain范围。source/group擦除�
 
 ```json
 {"consumer_id":"consumer_a1","state":"REVALIDATION_REQUIRED","last_acked_change_seq":18,
- "lease_expires_at":"2026-10-27T00:05:00.000Z","required_action":"validate_or_discard_all_bundles"}
+ "lease_expires_at":"2026-10-27T00:05:00.000Z","required_action":"discard_all_bundles_and_reset"}
 ```
 
 租约过期/游标断档返回200当前不可用状态或409 `CONSUMER_REVALIDATION_REQUIRED`，宿主必须停止旧上下文使用。恢复时discard全部旧包、确认重置、从服务reset cursor重新消费再ack；单纯heartbeat不算恢复。tool_only_best_effort可以不续约，但永不列入强消费者清理完成保证；其存在必须在erase/revoke操作里明示。
@@ -971,7 +981,7 @@ A的supported_modes/repair_kinds为空；可选B可声明catch_up/backfill，按
 | `.agent_id` | ID | 必填，绑定受委托Agent |
 | `.entity_scope` | enum `selected_entities` / `owner_space` | 默认selected_entities；owner_space须issuer具有显式owner宽授权签发权，否则403 |
 | `.about_entity_ids` | ID[] | selected_entities必填，1–16；owner_space禁止，且不接受`*`，null主体并不因selected_entities而获得全文读取权 |
-| `.domains` | Domain[] | 必填，1–8 |
+| `.domains` | Domain[] | 必填，1–32，显式枚举已注册域；完整owner授权须覆盖实际目标全部领域。新增注册域不自动扩大旧grant；查询/单来源的8项限制不用于grant目录 |
 | `.actions` | enum[] | 必填，1–32，动作必须来自服务声明的注册action集合 |
 | `.projection` | `{raw_source:boolean,field_paths:string[]}` | 必填，raw_source默认false、最多64注册字段路径；不允许仅用raw_source=true跨域读取混合原文 |
 | `.valid_time_range` | TimeRange | 可选，限制可读事实时间；不填只表示未施加时间限制，不解除其他范围 |

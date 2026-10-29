@@ -2,6 +2,8 @@
 
 核实日期：2026-10-26（America/New_York）。本笔记区分论文、当前开源实现、商业托管能力；仓库均下载到 `/private/tmp/mem-you-memory-*` 进行静态代码核实，没有运行 benchmark，没有部署服务，没有修改用户的其他项目。以下“建议/判断”是针对本项目的工程推论，不是厂商性能结论。
 
+§1–6保留上述版本快照，业务权威与接口以docs/spec-v1为准；2026-10-28对用户提供的四条路线重新核对，见§7，不用新main覆盖旧审计版本。
+
 ## 1. 最重要的结论
 
 这个产品的核心应是**用户的可追溯生活事件库，加上为 Agent 提供上下文的记忆投影**。不能把“抽出一些值得记住的事实，再做向量检索”直接当作完整服务。体重、支出、饮食和心情首先是按时间发生的多条事件；长期偏好、身体背景、阶段性状态是从事件派生的不同对象。一次记录不够“重要”也必须保存，否则服务失去记录产品的价值。
@@ -136,3 +138,23 @@
 | 低延迟与重试 | LLM 抽取超时、重复 webhook、异步 backlog | 原始记录不丢、幂等、退化可用、`as_of` 明确 |
 
 应该记录的指标包括：原始保存完整率、字段抽取准确率、关键证据 recall@budget、错误历史污染率、时间归一正确率、纠错与删除传播、数值聚合正确率、p50/p95 延迟、每条写入与每次检索成本。LongMemEval/LoCoMo 的厂商成绩可以了解其测试题型，不能替代这些中文生活记录验收。
+
+## 7. 2026-10-28 四条锚点路线重新核对
+
+本轮通过官方论文/文档、GitHub公开API定位commit，并只读固定版本的关键模型、配置和写入/反馈路径；没有部署、运行benchmark或模型。源码日期按UTC，研究日期按America/Los_Angeles；包版本相同不代表commit未变化。
+
+| 对象 | 本轮固定快照 | 核对范围 |
+|---|---|---|
+| Mem0 OSS | `26cdefb46600c0fa5953c4b5ee5003c125539fc4`，2.2.1，UTC 10-26 | [版本](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/pyproject.toml)、[主写入路径](https://github.com/mem0ai/mem0/blob/26cdefb46600c0fa5953c4b5ee5003c125539fc4/mem0/memory/main.py#L881)；仍与旧快照一致 |
+| Graphiti | `72b5c59c06607e09ea855be61b6ff5a3446fc951`，0.31.2，UTC 10-28 | [版本](https://github.com/getzep/graphiti/blob/72b5c59c06607e09ea855be61b6ff5a3446fc951/pyproject.toml)、[EntityEdge](https://github.com/getzep/graphiti/blob/72b5c59c06607e09ea855be61b6ff5a3446fc951/graphiti_core/edges.py#L263)；episode引用及系统/有效时间仍在，未重审全部实现 |
+| Letta Code | `85851b8a8cfd8efdbb6130aec555cb6e3c1e7c08`，0.34.28，UTC 10-29 / LA 10-28 | [版本](https://github.com/letta-ai/letta-code/blob/85851b8a8cfd8efdbb6130aec555cb6e3c1e7c08/package.json)、[MemFS](https://github.com/letta-ai/letta-code/blob/85851b8a8cfd8efdbb6130aec555cb6e3c1e7c08/src/agent/memory-filesystem.ts)；Git记忆路线 |
+| MemOS | `adcb9f270c982f2b9ff8db9714792829d3bd6ab8`，Python包MemoryOS 2.0.33，UTC 10-23 | [版本](https://github.com/MemTensor/MemOS/blob/adcb9f270c982f2b9ff8db9714792829d3bd6ab8/pyproject.toml)、[MemFeedback](https://github.com/MemTensor/MemOS/blob/adcb9f270c982f2b9ff8db9714792829d3bd6ab8/src/memos/mem_feedback/feedback.py#L585)；retrieved_memory_ids定向反馈、归档与版本分支 |
+
+**论文、开源实现、托管能力分别记录：**
+
+- **Mem0**：[2025-04-28论文v1](https://arxiv.org/html/2504.19413v1)有ADD/UPDATE/DELETE/NOOP及graph变体；报告中的相对改善有特定基线、reader和judge，表内full-context分数也高于部分Mem0配置，不能概括为全场景最优。固定OSS的默认add仍为追加抽取，显式update/delete另在；timestamp/reference_date仍有Platform-only边界，论文或Cloud能力不自动成为OSS默认能力。
+- **MemGPT / Letta**：[MemGPT v2](https://arxiv.org/html/2310.08560v2)讨论有限窗口与外部存储的自管理；[当前Letta](https://github.com/letta-ai/letta)的V1 server已移往archive。[现行MemFS](https://docs.letta.com/concepts/memfs)将根文件与按需索引分开，[Dreaming](https://docs.letta.com/configuration/memory)可后台整理近期对话。文件版本适合导航和可读投影，不能直接替代精确证据、隐私擦除及宿主清理。
+- **Zep / Graphiti**：[Zep v1，2025-01-20](https://arxiv.org/html/2501.13956v1)表1确有GPT-4 Turbo条件下DMR的94.8%与MemGPT 93.4%；后者带引用原论文脚注，不是同环境重跑。同一模型组的full-conversation为94.4%，DMR段落约60消息，不能外推中文长历史或生命周期保证。[官方边界说明](https://help.getzep.com/zep-vs-graphiti)区分自运维图引擎与托管上下文/治理产品。
+- **MemOS**：[论文2507.03724](https://arxiv.org/abs/2507.03724)初版2025-07-04、最新v4为2025-12-03。文本、activation/KV和parameter是底层记忆载体分类，与本项目L0–L3职责不同；不能据论文愿景推定[当前服务/插件](https://github.com/MemTensor/MemOS)已提供任意模型间的KV或参数转换。反馈定位实际使用的记忆有价值，多步模型更新仍不等于本项目的原子失效和full消费者清理。
+
+对本项目的结论仍是保留统一source/memory/projection/bundle及生命周期合同：Mem0可作抽取/召回对照，Letta作窗口消费与可读导航参考，Graphiti作后置关系/时间检索投影，MemOS作Adapter/定向纠错参考。候选对照须核对可见原材料、真正应用/可检索阶段、reader与token成本、纠正/删除传播范围；论文分数仅记为作者报告。本轮没有证据要求更换架构、全量引入这些引擎或扩大A。

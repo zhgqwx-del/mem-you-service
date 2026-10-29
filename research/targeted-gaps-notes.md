@@ -2,6 +2,8 @@
 
 核实日期：2026-10-26（America/New_York）。范围限于能补充现有方案的三个对象；只读官方文档、固定源码，没有运行模型、服务或性能评测。本文的选型判断是针对生活记录产品的工程推论，不是厂商性能结论。原有七个 Agent 和五个框架的对比继续有效，不重复展开。
 
+§1–5保留上述日期的研究快照，以docs/spec-v1为现行合同。2026-10-28新增Hy-Memory官方资料、固定源码及论文核对见§6，不据论文/托管功能推定SDK能力。
+
 ## 1. 先给结论
 
 值得补上的不是更多“会记住用户”的项目，而是三个具体能力：**持续记录流如何变成可更新状态；前台必定拿到记忆、后台富化可以落后到什么程度；用户纠正后哪些旧结论必须立即停止生效。** 本轮发现的实现适合借鉴这些局部机制，均不能代替原始记录、测量/交易事件和业务状态的权威数据库。
@@ -50,3 +52,37 @@
 4. **有用且少打扰：** 对每次新记录标注“该用哪些历史/可以不用历史/是否应追问”。验证记忆是否改善回复或工具参数，是否误用过期背景，是否把潜在话题变成未经用户要求的提醒。先复用现有 Hindsight/Mem0/自建基线，只增加 MemOS 的接入/纠错对照；有长会话成本证据后再运行 OM 对照。
 
 这四组实验能决定需要哪种现成引擎。继续增加一串框架名称，不能回答产品当前最关键的新鲜度、事件真实性和交互收益问题。
+
+## 6. 2026-10-28 Hy-Memory官方资料核对
+
+本轮读取官方网页、论文及固定commit的关键源码，未安装SDK、下载模型权重、启动MemHub、调用模型或复现benchmark。临时源码/PDF只作核对材料，不是本项目运行依赖。
+
+| 材料 | 已核实的版本与证据边界 |
+|---|---|
+| [官网](https://memory.hunyuan.tencent.com/) | 标记2.0于2026-10-16发布，区分记忆模型、SDK引擎和MemHub应用；不能将三者保证混用 |
+| [固定仓库](https://github.com/Tencent-Hunyuan/Hy-Memory/commit/988667cd876fb80bee6d618482f78a2fe426402c) | SHA为`988667cd876fb80bee6d618482f78a2fe426402c`，2026-10-28T14:07:22Z；核对README.zh、usage、search/graph、client/writer/reconciler、snapshot、manifest及CMB相关章节 |
+| [PyPI](https://pypi.org/project/hy-memory/)、[固定manifest](https://github.com/Tencent-Hunyuan/Hy-Memory/blob/988667cd876fb80bee6d618482f78a2fe426402c/pyproject.toml) | 当前核得2.0.8；README安装片段仍写2.0.4，不能据片段冻结最新依赖。SDK [LICENSE](https://github.com/Tencent-Hunyuan/Hy-Memory/blob/988667cd876fb80bee6d618482f78a2fe426402c/LICENSE)为Apache-2.0，第三方组件另遵其许可 |
+| [Memory Beyond Recall，arXiv](https://arxiv.org/abs/2606.09483) | v1为2026-06-08，Tianxiang Fei、Mingyang Song、Mao Zheng、Xiang Yu；另有[ACL正式条目](https://aclanthology.org/2026.findings-emnlp.1918/)，应写**Findings of EMNLP 2026**。arXiv称DCPM，ACL摘要称DPCM，引用须标版本，不混称主会 |
+| [Hy-Memory-30B-A3B技术报告](https://arxiv.org/abs/2610.22196) | v1为2026-10-15，Tianxiang Fei、Jiazheng Kang、Mao Zheng、Xingyan He、Xiang Yu；本轮未找到其他正式接收记录，是外部记忆writer研究 |
+| [模型卡](https://huggingface.co/tencent/Hy-Memory-30B-A3B)、[固定revision](https://huggingface.co/tencent/Hy-Memory-30B-A3B/commit/64a460a94d5498b7316fb02395c72d01c47a7347) | 30B MoE、约3B激活参数；revision为`64a460a94d5498b7316fb02395c72d01c47a7347`。[公开权重LICENSE](https://huggingface.co/tencent/Hy-Memory-30B-A3B/blob/main/LICENSE)声明Apache-2.0；只读模型卡/清单，未校验权重内容或推理效果 |
+| [CMB固定PDF](https://github.com/Tencent-Hunyuan/Hy-Memory/blob/988667cd876fb80bee6d618482f78a2fe426402c/docs/papers/CMB_A_Coding_Memory_Benchmark_for_Long_Horizon_and_Interleaved_Coding_Agents.pdf) | Jiazheng Kang、Tianxiang Fei共同一作，Mao Zheng；19页，读取第1–6、9–10、18–19页并渲染首页核作者。216执行任务、750 QA、5595 turns、9仓库、4语言；README自述投ICLR2027，未核得独立录用记录或数据包完整发布证明 |
+
+### 6.1 可借鉴机制与实际实现范围
+
+[双过程论文正文](https://arxiv.org/html/2606.09483v1)将在线写入修订链与后台图式/意图归纳分开；后者是运行时派生计算，不等于每晚训练模型权重。论文指出短暂状态可被误判为稳定变化，英文聊天评测不能直接证明中文生活记录效果。Findings条目也明确单次运行条件；不将其改善量作为本项目预期收益。
+
+[固定中文README](https://github.com/Tencent-Hunyuan/Hy-Memory/blob/988667cd876fb80bee6d618482f78a2fe426402c/README.zh.md)按Chat内容粒度组织原对话、事实、摘要、图式/意图，L4/L5为保留位；与本项目L0–L3职责层号不同。[usage](https://github.com/Tencent-Hunyuan/Hy-Memory/blob/988667cd876fb80bee6d618482f78a2fe426402c/docs/usage.md)区分lite原文向量、pro抽取协调和ultra；System2由调用方显式evolve，不随add自动运行，调用前产品授权边界仍需外部负责。
+
+[writer论文正文](https://arxiv.org/html/2610.22196v1)先用on-policy distillation学习框架协议，再用chunk探针、跨chunk归因、增长惩罚及GRPO训练写入；固定reader/judge，学习bank由前序策略输出延续。它承认归因不是反事实因果证明，主要结果基于固定20%子集，关键消融及人工一致性审核仍待补；不能仅据总分断言完整中文写入质量已验证。
+
+[CMB](https://github.com/Tencent-Hunyuan/Hy-Memory/blob/988667cd876fb80bee6d618482f78a2fe426402c/docs/papers/CMB_A_Coding_Memory_Benchmark_for_Long_Horizon_and_Interleaved_Coding_Agents.pdf)用TriLink联系任务事实、经验与真实diff，并冻结交错任务的历史/检查点；其合成构造和代码对象元数据限制不能忽略。本项目可借鉴“保存历史前缀、以后续工具执行与恢复结果检验记忆”，以operation/条目回执对应，不引入coding diff链。
+
+### 6.2 适配当前合同的差距与取舍
+
+| 已核能力 | 本项目处理 |
+|---|---|
+| [Client](https://github.com/Tencent-Hunyuan/Hy-Memory/blob/988667cd876fb80bee6d618482f78a2fe426402c/hy_memory/client.py)有add(request_id)、get_write_outcome及持久重放/unknown；[snapshot](https://github.com/Tencent-Hunyuan/Hy-Memory/blob/988667cd876fb80bee6d618482f78a2fe426402c/hy_memory/snapshot.py)有停写本地数据快照/恢复 | 不能笼统写成“没有幂等或恢复”；但公开update/delete签名没有本项目expected-version CAS，上述能力不能等同于grant、连续external_barrier、全版本source erase、独立控制ledger与full消费者清理。未证实的保证不能凭名称补齐 |
+| [Reader指南](https://github.com/Tencent-Hunyuan/Hy-Memory/blob/988667cd876fb80bee6d618482f78a2fe426402c/docs/hy_memory_search_skill.md)的默认legacy为dense，部分后端hybrid缺词法增量，Reader失败可返空桶；[Graph](https://github.com/Tencent-Hunyuan/Hy-Memory/blob/988667cd876fb80bee6d618482f78a2fe426402c/docs/pro_graph_design.md)为可选fail-open增强 | 若做受控引擎对照，须映射计划通道/覆盖及empty/degraded/error，不能继承静默失败语义；授权、来源/删除门禁仍fail closed |
+| writer压缩、更新链与高级归纳 | 可作可替换候选writer或后置派生组织；分别统计原来源保存完整性和派生压缩率，原始来源不受“少存记忆”奖励筛掉。状态变化、更正、新事件分开；任何链路不得越过当前用途/权限或取回已erase内容 |
+
+当前吸收位置为00§4.5、01§5.3及04§6.4：快慢路径职责、受控writer候选发布、轨迹语义、上下文污染和writer独立对照。没有新增首发依赖、全量金字塔、自动心理图式/潜在意图、主动提醒或RL训练。是否启用后续能力，以真实中文数据、费用及合同验收决定。

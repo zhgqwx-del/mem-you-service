@@ -1,8 +1,8 @@
 # V1 数据模型与一致性约束
 
-版本：设计 V1.2 修订1，2026年10月27日整体审查修订。
+版本：设计 V1.2 修订2，2026年10月28日整体审查修订。
 
-本文是独立记忆服务的开发规格，和 [API 合同](02-api-contract.md)、[Agent 时序与恢复](03-agent-sequences-and-recovery.md)、[评测与验收](04-evaluation-and-acceptance.md)共同使用；启用持久聊天连接器时同时遵守 [聊天摄取与补偿合同](06-history-ingestion-and-repair.md)。本文定义逻辑对象、类型、关系与事务，不提供 DDL 或实现代码。日期：2026-10-27。
+本文是独立记忆服务的开发规格，和 [API 合同](02-api-contract.md)、[Agent 时序与恢复](03-agent-sequences-and-recovery.md)、[评测与验收](04-evaluation-and-acceptance.md)共同使用；启用持久聊天连接器时同时遵守 [聊天摄取与补偿合同](06-history-ingestion-and-repair.md)。本文定义逻辑对象、类型、关系与事务，不提供 DDL 或实现代码。日期：2026-10-28（America/Los_Angeles）。
 
 ## 1. 数据归属先于存储设计
 
@@ -93,6 +93,8 @@ known区间属于服务端头变更事件/独立知晓区间投影，不修改�
 
 查询`time_basis`固定为`occurred/recorded_at`，默认occurred：前者按发生时间/范围，后者按上述来源记录时间。新抽取一条十年前记录不会因今天跑worker而命中“今天记录”的窗口。时间未知的行可以通过recorded_at基准取证，但不能因此宣称知道其发生日期。
 
+`valid_from/valid_to`使用YYYY-MM-DD时，只在全部required来源闭包具有同一个可靠的已保存来源时区（sources:upsert的timezone）时接受；缺时区、跨多个时区或无source的笔记须改传含偏移的RFC3339时间点，返回422 SCHEMA_VALUE_INVALID而不猜服务器/当前会话时区。按该IANA时区的本地日界归一，valid_to仍为排他边界；日界无法唯一解析时同样要求明确时间点。服务保存使用的时区和归一结果，后续旅行、重抽或服务器时区变化不能改变既有生效点，已知两端须from<to。
+
 ## 3. 逻辑对象和关系
 
 ```mermaid
@@ -113,6 +115,17 @@ erDiagram
 ```
 
 关系图表达逻辑归属，不规定必须一对象一张数据库表。首期采用 PostgreSQL、pgvector 与经中文实测选定的词法索引。身份、版本、依赖、幂等和失效状态必须保存在事务数据库；搜索引擎不是这些状态的唯一载体。
+
+2026-10-28补充分层映射，完整职责见[00§4.1–4.5](00-boundaries-and-invariants.md#41-memoryservice内部逻辑分层)：
+
+| 逻辑层 | 本册对象及依赖含义 |
+|---|---|
+| L0来源证据 | source_group、source/source_revision、external_binding及origin_binding，保留稳定依据、修订和生命周期门禁 |
+| L1可管理记忆 | memory/memory_revision及evidence_dependency；statement、typed证据、偏好/约束、推断、摘要等并列，摘要/画像不另设更高权威 |
+| L2检索表示与召回 | retrieval_projection及index_generation；source_revision与memory_revision均可直接建立投影，不要求先有结构化记忆或摘要 |
+| L3上下文装配与受控交付 | context_bundle及消费者依赖，统一context/read_result；是受用途、预算和有效性约束的使用快照，不是另一份永久记忆 |
+
+上述映射不增加memory_kind、schema、表或API字段。纯Agent推断允许的session lineage仍按§5处理；所有语义支持的精确版本闭包、权限继承及失效规则适用于各层。显式记忆和保留来源是重建依据；检索表示与启用的摘要是受门禁约束的派生物，不能反过来取代其依据。
 
 ## 4. 来源镜像与产品提交映射
 
@@ -185,6 +198,8 @@ origin_namespace、actor_ref、授权空间和内部定位键均由 grant/认证
 - `agent_inferred`：模型生成的解释、估计、关联、规划或无法证明来自真实用户的 Agent 自报内容。引用已提交条目不会把推断升级为 committed。
 
 接入方可以申请某种权威，服务只授予其凭证能力允许的级别。`confirmation=explicit_user` 自报不能替代认证用户消息证明；未具备该证明的任意 Agent 调用仍可写自己的推断/笔记。
+
+服务另保存绑定source/version的完整域/主体标签核验依据及策略版本。尚未核清的自由文本不能因请求只填food而向窄food grant交付“牛肉面26元”的原文/片段，也不能把“妈妈失眠”暂标self后向仅self授权者先行交付；按00§6.1拒返或仅交付独立可证安全的投影。此为既有授权门禁的内部状态，不增加调用方可自报的“已分类”字段；标签/元数据变更仍遵守不可变修订、CAS与失效代际。
 
 ### 4.4 `external_binding` 与原输入证据关联：只保留纠正所需映射
 
@@ -298,6 +313,12 @@ live来源尚未applied而正式回执先到时，可信external_record事件可
 
 优先规则为：明确指向目标的用户更正/权威修订高于旧版本；不同时间的陈述先尝试解释为时间变化；仍矛盾则并列返回冲突与时间范围。不能用“多来源支持数更多”覆盖用户刚做的更正，也不能以新记录接收时间直接覆盖旧的发生时间。
 
+解释更新轨迹时，区分纠错、真实状态/偏好变化与新事件；例如“以前喝咖啡，现在不喝”不证明旧时陈述是错误，“今天又喝一杯”也不因数值相同而替代上一杯。沿用修订、有效时间及已有replaces/supersedes引用，不增加公共链表字段或强制启用memory_relation；任何链路展开仍受当前grant、用途、historical_only、erase与来源闭包约束，不能借轨迹恢复已删除正文。学习型writer同样只提交候选，不能自动用最新CAS抢占人工头。
+
+此说明不新增任意旧revision正文或known_at时光回溯读取；普通接口仍只返回当前有效可见revision，historical_only仅沿用02§2.6限定的原话/更正历史取证条件，不能将“尚未erase”等同于所有旧修订可读。
+
+state_change保留旧有效区间供受控审计/来源解释，但当前memory头更新后，facts.valid_at只筛当前可用修订，不重建被替代旧头。过去状态可对仍有效且获授权的原来源取证；空投影不证明当时无该状态。完整的结构化历史状态投影若后续需要须另行设计，不能借valid_at放开旧revision正文。
+
 ## 6. 数值 schema 与 V1 注册表
 
 V1 支持记忆中的类型化值，避免所有内容都只能字符串检索；同时禁止它成为产品正式指标的隐藏来源。
@@ -396,9 +417,9 @@ facts的时间限制通过公共time_range/time_basis/valid_at指定，不通过
 | `operation_id` | id | ! | MemoryService 操作身份；不替代产品 operation |
 | `idempotency_key` | opaque string | ! | 唯一范围：授权空间 + grant + mutation endpoint；grant 内的来源 namespace 由服务校验 |
 | `request_hash` | string | ! | 相同 key 不同载荷返回冲突，不启动第二次写 |
-| `state` | enum | ! | 公共status映射`accepted/running/applied/completed/failed/cancelled`；accepted只表示持久接收，running为执行中，applied表示本地变更与门禁生效，completed表示该操作声明的后台阶段已完成；cancelled不回滚已经applied的阶段；普通写不等待任意宿主清理 |
-| `write_token` | opaque string | ? | canonical已applied才有，后续状态仍可带，accepted不提供；公开回执token不暴露数据库序号，绑定空间、操作、最低可见条件及有效期 |
-| `result_refs` | exact ref array | ! | 成功写入的来源/记忆版本；未应用时 `[]` |
+| `state` | enum | ! | 公共status映射`accepted/running/applied/completed/failed/cancelled`；accepted只表示持久接收，running为执行中，applied表示本地变更/门禁生效或有序事件安全抑制消费，completed表示该操作声明的后台阶段已完成；cancelled不回滚已经applied的阶段；普通写不等待任意宿主清理 |
+| `write_token` | opaque string | ? | 本地变更已applied或安全抑制消费完成才可有，后续状态仍可带，accepted不提供；公开回执token不暴露数据库序号，绑定空间、操作、最低可见条件及有效期，不保证目标仍可读 |
+| `result_refs` | exact ref array | ! | 成功写入/复用的来源或记忆版本；未应用或外部事件policy_suppressed时为`[]`，后者可已安全消费但无新来源可读 |
 | `error_code` | enum/string | ? | failed 时必填；不在错误文本附完整敏感内容 |
 | `created_at` / `applied_at` / `expires_at` | timestamp | ! / ? / ? | 幂等保留和 token 有效期独立；不能 token 过期就自动重放写入 |
 
@@ -414,13 +435,14 @@ applied之后的抽取、物理清理或消费者故障记录在独立phase/prog
 |---|---|---|---|
 | stream.stream_id | id | ! | 受信提供方在某授权空间的有序事件流；每条流自行定义初始序号 |
 | stream.system_id / owner scope | id | ! | 固定绑定，不接受 Agent 动态声称自己是产品流 |
-| stream.applied_through_seq | seq | ! | 截止该序号的所有事件均完成来源镜像与失效门禁；连续值 |
+| stream.applied_through_seq | seq | ! | 截止该序号的所有事件均完成镜像/门禁或有证据的erase抑制消费；连续值 |
 | stream.highest_received_seq | seq | ! | 收到的最大值，仅诊断，不可当 barrier 满足条件 |
 | stream.health | enum | ! | `healthy/gap/quarantined/reconciling` |
 | delivery.stream_id + seq | id + seq | ! | 联合唯一，事件同号同 hash 幂等；同号不同载荷隔离并报警 |
 | delivery.event_id / payload_hash | id / string | ! | 提供方稳定事件身份及完整性检查 |
 | delivery.state | enum | ! | `received/waiting_for_predecessor/applying/applied/superseded/quarantined` |
-| delivery.source_refs | array | ! | 应用后的精确来源版本；未应用为空 |
+| delivery.source_refs | array | ! | 应用后的精确来源版本；未应用或policy_suppressed为空 |
+| delivery.import_outcome / suppression_ref | enum / ref | ? | applied时outcome为source_applied或policy_suppressed；后者必须绑定当前独立ledger/擦除范围的可核对证明，无新正文/修订 |
 | delivery.received_at / applied_at | timestamp | ! / ? | 用于延迟与积压观测 |
 | delivery.reconciliation_ref | ref | ? | superseded 必须有权威对账/快照证明，不能人为跳过毒消息凑水位 |
 
@@ -430,7 +452,11 @@ V1的external_record创建、更正、撤回、删除均只经该条目绑定的
 
 同一个外部稳定条目、同一个 external_version 和同一载荷的重放不增加source_version，但该事件仍可记为applied并推进连续流。相同外部版本携带不同载荷必须隔离/对账，不能任选其一覆盖；更高stream_seq也不能为这种冲突自动背书。流必须是单owner序列或等价授权投影序列，不能过滤全局流后遗留其他owner事件造成永久缺口。
 
-该水位表示**来源镜像及安全失效门禁**到位，不表示 embedding、摘要、画像全部完成。检索响应还需给出 `indexing_status/coverage`；向量未完成时可由当前有效来源的词法、精确引用或受控候选通道降级，不能用旧来源补足。
+隐私erase后产品仍可能更新同一条目。身份、版本/hash及顺序合法且命中可核对本地erase/owner历史抑制的事件，沿delivery.state=applied、import_outcome=policy_suppressed终结；核抑制证明、无正文消费回执和连续水位推进同事务提交，不建立新source_version、可读result_refs或派生。写token若返回仅证明该事件处理和门禁，required_sources/精确读取仍反映来源不可用。已知应抑制的入站事件只持久最小身份、hash、顺序与控制证明，不重新保存正文；不能用普通410让后续无关事件永久等待。真正缺序、坏载荷/身份冲突、无权导入或抑制范围不可证明仍等待/隔离，不用policy_suppressed跳过；普通sync复活仍410。
+
+安全抑制不是忽略事件全部副作用：仍核对并保留最小外部身份/版本/hash及受信关联，按§4.4同事务执行累计原断言的historical_only/失效门禁和必要的blocked origin关联。仅外部镜像被擦除、raw仍在时，后来的300→100更正不得让raw中的旧300继续当作当前事实；新100镜像仍不物化。控制关联不含新旧正文，不解除任何erase。
+
+该水位表示**来源镜像/失效门禁或有证明的策略抑制消费**到位，不表示每条事件都产生可读镜像，也不表示 embedding、摘要、画像全部完成。检索响应还需给出 `indexing_status/coverage`；向量未完成时可由当前有效来源的词法、精确引用或受控候选通道降级，不能用旧来源补足。
 
 事件尽量携带权威条目的完整当前快照与外部版本；增量事件若缺前序版本只能等待，或由可信连接器向权威 API 对账后提供证明；MemoryService 不自行调用产品业务工具或任意外部 URL。内部 source_version 始终由本服务分配；外部版本即使不是整数也能保留，不假定它与 seq 一一相等。权威删除 tombstone 到达后，晚到旧更新不能使条目复活；上游显式恢复也不能越过本服务已经执行的erase抑制键，须经新授权与受控重新导入、使用新来源身份。仅语义撤回retracted的恢复与隐私擦除deleted分开。
 
@@ -541,6 +567,8 @@ full消费者注册时还须按其grant的有效scope绑定source/group失效订
 ### 9.3 审计和评测日志
 
 `retrieval_audit` 至少记录 request/trace ID、actor、授权空间、目的、策略/模型/index版本、过滤范围摘要、候选/返回 IDs、覆盖/冲突/缺口状态、延迟、tokens、成本归因和最终决策。默认不记全量用户原文、完整 prompt、媒体 URL 或 bearer token；需要抽样调试时显式配置独立权限与短保留期。
+
+受控评测/调试进一步区分各计划通道的候选opaque引用与排名、融合位置、确定性身份去重、用途/约束/重复展示/预算等保留或排除原因，以及最终交付引用和分阶段耗时，以定位“未召到、融合靠后、门控排除或预算不足”。需要保留评分时同时记录评分类型和策略版本，不能将排序分数解释为事实置信度。此为既有内部审计的诊断细化，不增加公共debug字段或遥测平台；仅保存当前授权范围内允许审计的最小元数据，不记录越权候选ID、正文或隐藏数量，沿用§12与04的保留、擦除和访问控制。
 
 评测标签和人工判读不回灌为用户记忆。Agent 回复、反馈卡、图表描述、检索结果的再次引用，默认 `ingestible=false`；只有用户显式提供新事实并具备真实来源时才进入新来源组，避免记忆自我循环。
 

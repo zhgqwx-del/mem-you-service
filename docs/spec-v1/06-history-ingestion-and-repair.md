@@ -1,6 +1,6 @@
 # 持久聊天摄取与记忆补偿
 
-版本：设计V1.2 修订1，2026年10月27日。本文是启用持久聊天连接器时的开发合同，与00–04共同使用；不是已经实现的功能。05及07是审查记录，不承担接口定义。
+版本：设计V1.2 修订2，2026年10月28日。本文是启用持久聊天连接器时的开发合同，与00–04共同使用；不是已经实现的功能。05及07是审查记录，不承担接口定义。
 
 **持久聊天是可按需重新取证的来源库；记忆是其有版本、有使用限制的派生结果。** 应支持从聊天补采遗漏来源、抽取漏记内容及重算自动记忆，但不把每条聊天都变成事实，也不靠每日全库“做梦”代替可靠的摄取和补偿。
 
@@ -235,6 +235,8 @@ GET operation把这些扩展字段放在history_progress对象，内部执行状
 权威session删除先按`(tenant,owner,source_system_id,conversation_id)`持久记录control_generation及终态拒收门禁，并使已有关联来源/依赖失效；换connector或重置扫描不改变该稳定拒收键，所有origin首次绑定、sync和派生发布均核同一串行门禁。即使某item从未被导入、旧扫描页此前verify_current成功，删除applied后才到的首次upsert也必须拒绝，不能只枚举当时已有origin_binding。独立控制日志记录该scope，恢复旧备份先重放；控制ACK必须在scope gate与本地失效可核对后。未可判定的源暂时不可用用unavailable保守门禁，不伪造terminal删除。
 
 memory-only erase不删MySQL原聊天/RecordService；源session删除精确清除其origin对应的user_input来源及依赖，不按共享source_group整组erase正式业务镜像。独立RecordService源仍有效时，其镜像继续按有序流应用；input_origin_binding可记录blocked元关联/审计，不能物化已删聊天或解除门禁，也不能仅因关联被删而隔离整个业务event、卡住流。其他真实身份/内容冲突仍按原合同隔离。业务条目本身删除需自己的权威事件；产品原聊天仍保留时full宿主继续执行恢复抑制。
+
+若被Memory-only erase的正是该正式来源，后续合法有序更新沿01/02的policy_suppressed消费：无正文、无新来源修订，但在可核对控制依据及连续顺序下推进barrier。此结果与“聊天关联被删但业务镜像仍可用”分开报告；history worker不能借其判定来源已存在可读，也不能解除原抑制。
 
 显式重新授权历史导入是独立受控流程，绑定新的授权决定、具体旧范围及策略代次，并记录覆盖的抑制例外；普通history:run(preview=false)或operator重试不构成重新授权。不修改原deleted source的生命周期，必要的新来源身份仍保留旧origin审计关联，由特权流程创建新授权代次，默认路径无复活能力。
 

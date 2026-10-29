@@ -1,12 +1,12 @@
 # 跨电脑开发交接说明
 
-最近核对日期：2026-10-28（America/Los_Angeles）；本机上下文恢复、验证与未完项见第8节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期：2026-10-28（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，最新整体审查、修订2与未完项见第12节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
 
 ## 1 当前到底交付了什么
 
 本仓库地址：<https://github.com/zhgqwx-del/mem-you-service>。
 
-初次编写交接时，`main` 与本地 `origin/main` 均指向 `56733d1`，工作区干净。该提交是现有设计/调研基线；这是初次交接开始时的本地引用快照。交接文件随后在 `1e0f663` 中提交；本机最新核对见第8节。新电脑应核对实际分支、提交与远端同步状态，不固定退回旧提交。
+初次编写交接时，`main` 与本地 `origin/main` 均指向 `56733d1`，工作区干净。该提交是现有设计/调研基线；这是初次交接开始时的本地引用快照。交接文件随后在 `1e0f663` 中提交，首次本机认知恢复在 `b093074` 中提交；后续设计及路径核对见第9–10节。新电脑应核对实际分支、提交与远端同步状态，不固定退回旧提交。
 
 | 内容 | 交接时的真实状态 |
 |---|---|
@@ -81,9 +81,9 @@ Prompt能引导新会话恢复已保存的事实，不能恢复未记录的口�
 
 ## 5 哪些外部材料不会随本仓库迁移
 
-下面位置与摘要来自初次交接时2026-10-28的只读核对，原电脑状态不代表当前电脑。没有读取真实 `.env`、导出聊天或复制外部文件。本机实际可用材料见第8节。
+下面位置与摘要来自初次交接时2026-10-28的只读核对，原电脑状态不代表当前电脑。没有读取真实 `.env`、导出聊天或复制外部文件。本机Agent核对见第8节，最新旧设计原文复核见第9节。
 
-### 5.1 现有Agent项目：实际集成时另拉
+### 5.1 现有Agent项目：优先定位本机checkout
 
 - 仓库：<https://github.com/zhgqwx-del/agent-service>，访问权限在新电脑单独配置。
 - 已审计commit：`5d38b2cd6307aab9c8dec2c475b1bebf886d8283`。
@@ -91,7 +91,9 @@ Prompt能引导新会话恢复已保存的事实，不能恢复未记录的口�
 - 核对时为 `main`，HEAD与审计commit一致，工作区干净；未联网核对远端是否有更新。
 - 证据入口：[聊天存储审计](../research/chat-storage-audit.md)。
 
-需要源码集成时，在自选父目录另行clone；取得之后先核对HEAD：
+2026-10-28本机映射已确认：仓库根为 `/Users/zhangguoqiang/ai-workspace/codex-workspace/agent-service`；宿主为其 `apps/agent-runner`，运行内核为 `packages/core`。本机HEAD及已有修改见第10节，不沿用原机工作区快照；非敏感路径已保存到被忽略的`.local/context.md`。
+
+需要源码集成时，先核对本机映射的checkout；尚未准备时才在自选父目录另行clone。取得之后先核对HEAD：
 
 ```sh
 git clone https://github.com/zhgqwx-del/agent-service.git
@@ -128,7 +130,7 @@ git -C agent-service cat-file -t 5d38b2cd6307aab9c8dec2c475b1bebf886d8283
 
 只有复核产品原型或历史推导才需要另行传输这些文件。普通设计分析和独立服务开发可先用已保存的审计结论，缺原文件时明确“未重新核对原始材料”。demo含演示/mock数据，不是真实聊天导出或正式评测金标准。
 
-初次交接时原文件仍在原目录，未为其建立备份；本机核对未找到这两个原路径，未提供其他路径映射。需要保留的原始材料应通过你认可的文件传输/备份渠道另行保存；收到后校验SHA-256。macOS可用 `shasum -a 256 <文件路径>`，Linux可用 `sha256sum <文件路径>`，PowerShell可用 `Get-FileHash -Algorithm SHA256 <文件路径>`，按实际路径加引号。
+初次交接时原文件仍在原目录，未为其建立备份；本机初次认知核查未找到这两个原路径。后续按用户指引找到桌面RTF，抽出的旧设计纯文与上表摘要一致，详见第9节；demo原文件仍未恢复。需要保留的原始材料应通过你认可的文件传输/备份渠道另行保存；收到后校验SHA-256。macOS可用 `shasum -a 256 <文件路径>`，Linux可用 `sha256sum <文件路径>`，PowerShell可用 `Get-FileHash -Algorithm SHA256 <文件路径>`，按实际路径加引号。
 
 ### 5.3 开源研究快照：按需重新取得
 
@@ -141,9 +143,12 @@ git -C agent-service cat-file -t 5d38b2cd6307aab9c8dec2c475b1bebf886d8283
 ```text
 MEM_YOU_ROOT: <本仓库绝对路径>
 AGENT_SERVICE_ROOT: <另一个仓库绝对路径；未准备则写缺失>
+AGENT_RUNNER_ROOT: <Agent仓库/apps/agent-runner>
+AGENT_RUNTIME_CORE_ROOT: <Agent仓库/packages/core>
 AGENT_SERVICE_HEAD: <实际git rev-parse HEAD结果>
 DEMO_HTML: <HTML路径；可缺失>
 LEGACY_DESIGN_MD: <旧设计路径；可缺失>
+LEGACY_DESIGN_RTF: <同内容RTF路径；可缺失，提取后校验文本摘要>
 LOCAL_SERVICE_STATE: <尚无实现 / 已建立本地开发环境>
 ```
 
@@ -155,7 +160,7 @@ LOCAL_SERVICE_STATE: <尚无实现 / 已建立本地开发环境>
 |---|---|---|
 | 继续设计分析 | 本仓库、Git、编辑器/开发助手 | 无需数据库或模型key |
 | 从零实现服务D1 | 依据当前合同建立工程，冻结运行时/包管理器/数据库版本；补依赖锁、迁移、无密钥配置样例和启动/测试说明 | 先完成本地确定性合同测试和受控依赖 |
-| 现有Agent源码集成 | 另拉agent-service，读其自身AGENTS/README及实际manifest，按新版本核对审计 | 缺项目时可开发明确标记的接口夹具；不能宣称真实集成完成 |
+| 现有Agent源码集成 | 定位本机checkout或另拉agent-service，读其自身AGENTS/README及实际manifest，按新版本核对审计 | 缺项目时可开发明确标记的接口夹具；不能宣称真实集成完成 |
 | 聊天补采B | 获授权开发MySQL、Adapter与生命周期控制能力、脱敏样本及任务预算 | 做preview/隔离测试；不能绕过稳定身份/分页/删除前置 |
 | 中文效果或容量验收D4 | 版本化数据集/金标准、真实模型及预算、固定硬件和结果报告 | 先设计或运行已具备条件的确定性用例；缺项明确记录 |
 
@@ -266,3 +271,116 @@ git diff --check
 5. **按需补外部证据**：需要重验原型/旧设计时补原文件并校验摘要；需要选型时取得对应固定源码。它们缺失不阻塞当前仓库内的设计分析，不能据此宣称原材料或运行结果已复核。
 
 本次停在文档认知与交接更新。下一次仍先检查实际HEAD、工作区和文件，再按用户明确的设计或开发需求推进。
+
+## 9 2026-10-28 分层澄清与旧设计整体复核
+
+用户本轮先要求分析并按需补清MemoryService分层，再要求整体查看桌面《记忆层设计》、按需参考。范围为设计文档；未启动服务开发。
+
+### 9.1 核查起点与原文证据
+
+- 起点为 `main` / HEAD `b093074ccebf6d50bd3d7f0dd0a84d1431ec7a76`，当时本地 `origin/main`相同、工作区干净；本轮未fetch/pull，不声明远端当前状态。
+- 已找到 `/Users/zhangguoqiang/Desktop/记忆层设计.rtf`（89822字节），SHA-256为 `54a3e16cb1754740b1ef5b8a515948cb67b98fbc9980db7dedaff7526a346538`。以textutil转换临时纯文后完整核读680行、43951字节，文本SHA-256为 `cf19f654ee744faf2924161659a9ddddb1ab95f331a7e21c972012ce0b66963f`，与第5.2节旧05设计一致；这更新了第8节当时“旧设计原件未复核”的状态。
+- 原RTF未修改或复制进Git；临时文本不是持久依赖。可用 `textutil -convert txt -output <临时文本路径> <RTF路径>` 转换，再执行 `shasum -a 256 <临时文本路径>` 核对。旧稿价格、配额、模型效果、论文分数和微基准未联网核验或复测，没有取得旧会话运行证据。
+- 仅定位用户指定的桌面文件，未读取真实密钥、运行数据或外部Agent私有环境。demo原件仍缺，其他开源快照本轮未重新取得。
+
+### 9.2 实际设计增量
+
+| 文档 | 本轮变更 |
+|---|---|
+| spec-v1/00 | 新增§4.1–4.4：L0来源、L1记忆、L2检索、L3受控交付；原文可直接召回/取证，摘要与小型画像同属受证据约束的内容；横向授权/失效与宿主epoch边界 |
+| spec-v1/README、docs/README | 补入口与状态说明，指向唯一分层定义 |
+| spec-v1/01 | §3对象映射、§9.3检索通道/融合/筛选/交付与阶段耗时诊断，不新增公共debug或正文日志 |
+| spec-v1/03 | 明确画像不规定进入不可变system前缀，宿主contextEpoch不替代Memory版本、bundle校验与清理 |
+| spec-v1/04 | §5.1复用既有验收映射；新增G13少历史场景；§6.3通道消融、时间错误与富化收益诊断；补实际速率限额、排队与积压归因 |
+| research/completeness-audit | 新增§5记录原文来源、已吸收内容、有限补充和不沿用的旧假设；§1–4继续标明历史快照 |
+
+分层澄清不改变V1.2修订1的公共API/schema、检索模型/维度与参数、A/B/C范围、数值发布门槛或D1–D4顺序。正式统计仍归产品，自动episode摘要和历史自动化仍按能力后置；未照搬旧情绪/声学量表、周期画像、256维blob或固定记录条数门槛。
+
+### 9.3 实际验证与接续
+
+- 实际执行 `git status --short --branch`、`git rev-parse HEAD`、`git diff --stat`、`git diff --check`；使用textutil转换及SHA-256核对原设计，以临时Python 3程序检查仓库内相对文件/标题链接、JSON解析与canonical_injection摘要。
+- 静态核查通过：24份Markdown中137个仓库内相对文件链接及6个标题锚点有效；34个JSON示例均可解析且与本轮起点逐字相同，context示例的UTF-8 hash及内容一致。既有16条B不变量、34条C/A及15条H验收主矩阵行未修改，分层映射复用其ID，另新增G13；02/06全文、01 schema注册表与04检索基线保持不变。内部Mermaid图未做可视渲染验收。
+- 两轮只读交叉审查已核对分层/能力范围及验收关系，并修正“摘要支持typed值”的反向表述为“摘要依赖已失效依据”；逻辑失效的本地保证起点明确为本服务applied。
+- 服务仍无实现；未执行HTTP/JSON Schema测试、数据库/真实Agent集成、真实模型、消融实验、中文效果、容量或恢复演练。新增诊断与用例是待执行要求，不是通过报告。
+- 本节设计复核结束时8份已有文档有修改，尚未提交、推送；后续路径补充见第10节。此前提交推送授权已用于 `b093074` 的认知交接包，本轮尚无新的提交/推送操作。
+
+下一步由用户决定具体设计问题或开发切片。首次实现仍需冻结工程版本、schema/迁移、release manifest与控制日志载体，交付动态Adapter、产品工具及相应夹具/验收；本轮没有扩大这些实现授权。
+
+## 10 2026-10-28 Agent Runtime本机路径确认
+
+用户明确本机通用Agent/Agent Runtime参考为`codex-workspace/agent-service`中的agent-runner。本次重新只读核对后，将其作为当前机器映射；原机绝对路径继续保留为历史审计线索。
+
+| 定位项 | 本机实际位置/状态 |
+|---|---|
+| Agent仓库根 | `/Users/zhangguoqiang/ai-workspace/codex-workspace/agent-service` |
+| 运行宿主 | `apps/agent-runner`；`src/main.ts`的startRunner装配SessionHost、存储、provider、工具、引擎及HTTP服务 |
+| 运行内核 | `packages/core`；会话、turn、模型/工具循环主要由`src/session/host.ts`等承载 |
+| 固定版本 | HEAD为`5d38b2cd6307aab9c8dec2c475b1bebf886d8283`，与既有审计一致 |
+| 已有工作区修改 | 仍为`AGENTS.md`、`README.md`、`docs/PROGRESS.md`、`docs/operations/chat-h5.md`四份文档；未修改外部仓库 |
+| 本地保存 | 已建立`.local/context.md`，含仓库/runner/core、RTF及缺失demo等非敏感映射；`.gitignore`的`.local/`规则覆盖该文件，不随Git迁移 |
+
+“通用记录型Agent”是应用角色，使用上述宿主和内核处理记录理解、工具及记忆编排；路径确认不表示MemoryAdapter、业务工具或点滴full_lifecycle接入已实现。当前入口查阅指向本机映射，历史快照不批量改写旧路径或旧行号。
+
+同步调整完整衔接Prompt为优先读取本机映射，并在03§2.2补宿主/内核定位。实际核对了外仓HEAD、工作区和入口符号；本地映射忽略规则、所指目录/文件和文档差异静态检查通过，未启动或测试外部服务。本节路径确认结束时9份受管理文档修改及被忽略的本地映射尚未提交；后续资料补核见第11节，服务实现状态不变。
+
+## 11 2026-10-28 上下文、Hy-Memory与锚点路线补核
+
+本轮用户提供Context Rot、前史敏感性、Hy-Memory系列、Mem0/Letta/Zep/Graphiti/MemOS及GRPO/Agentic RL资料，授权进一步核对并按需完善设计。开始时main/HEAD仍为`b093074ccebf6d50bd3d7f0dd0a84d1431ec7a76`，已有第9–10节的9份未提交文档修改；本轮继承这些修改，没有reset、覆盖或启动开发。
+
+### 11.1 一手证据与限定
+
+- Chroma官方报告是2025-07-14，作者为Kelly Hong、Anton Troynikov、Jeff Huber；`2506.00069` v1为2025-05-29。受控上下文实验不提供本服务通用安全token阈值，极值下降也不能当百分点或产品故障率。
+- Hy-Memory固定仓库为`988667cd876fb80bee6d618482f78a2fe426402c`、SDK 2.0.8；模型卡revision为`64a460a94d5498b7316fb02395c72d01c47a7347`。有限核对固定源码/指南及论文；CMB读相关章节并渲染首页，未验证数据包完整发布。论文一有Findings of EMNLP 2026正式条目，CMB仅核得官方自述投ICLR2027；SDK已有request_id/结果查询和快照，不能写成完全无幂等/恢复，也不能直接等同本项目完整生命周期合同。
+- 四条路线重新核对commit：Mem0 `26cdefb46600c0fa5953c4b5ee5003c125539fc4`；Graphiti `72b5c59c06607e09ea855be61b6ff5a3446fc951`；Letta Code `85851b8a8cfd8efdbb6130aec555cb6e3c1e7c08`；MemOS `adcb9f270c982f2b9ff8db9714792829d3bd6ab8`。Letta提交UTC为10-29、LA为10-28；未改写旧快照。论文、OSS、托管能力分别记录，Zep旧94.8/93.4比较含跨论文引用条件，不外推本项目。
+- GRPO核对DeepSeekMath、官方TRL及交互轨迹资料，不将“省掉critic”理解为训练无成本或必然稳定。用户两个中文文章标题无链接/原文，尚不能唯一定位；不声称已读。Zep根站URL经浏览工具不可达，已用官方help、仓库与原始论文完成相关边界核对。
+- 浏览与固定源码读取仅为研究。外部模型权重未下载，未安装SDK/框架、登录托管服务、收集真实用户训练轨迹、调用模型或复现benchmark。临时下载不构成持久依赖；正式原文链接、版本与局限分别保存在三份research笔记中。
+
+### 11.2 实际吸收与未扩大范围
+
+1. 00§4.5明确可靠写入/失效控制与后台派生的分工，writer只提候选，reader/retriever分开；高级认知归纳不新增服务层号，派生压缩不损坏来源完整性。
+2. 01§5.3补更正、真实状态变化、独立事件的轨迹语义，不新增链表API、强制图或任意旧版本回溯。
+3. 04新增G14/G15及§6.4：干扰/长度/位置、总上下文与Memory预算区分、历史污染/失效、oracle诊断组和固定reader的writer专项对照；选固定代表变体，不引入全排列矩阵或新的分数门槛。
+4. research/papers-frontier-notes§11、targeted-gaps-notes§6、memory-frameworks-notes§7保存一手核对；根README与docs索引同步入口。
+
+公共API/schema、BGE-M3/BM25/RRF基线、预算上限、数值发布目标、A/B/C及D1–D4保持不变。未新增Hy-Memory依赖、全量金字塔、自动心理/跨域意图推断、主动提醒或RL训练；候选对照由后续明确需求及预算决定。
+
+### 11.3 验证、状态与接续
+
+实际执行 `git status --short --branch`、`git rev-parse HEAD`、`git diff --stat`、`git diff --check`及临时Python 3静态程序。结果：24份Markdown中143个相对文件链接、12个标题锚点及围栏检查通过；34个JSON示例与起点逐字相同且可解析，context内容/hash一致。既有16条B不变量、34条C/A及15条H主矩阵、02/06全文、01 schema注册表及04检索基线保持不变；G13/G14/G15已定义但未执行。`.local/context.md`仍被忽略。三路只读审查后补明Zep比较模型、用户显式计划与推断意图区别、旧revision读取限制；未生成运行通过报告。
+
+当前仍只有文档。真实中文效果、writer消融、上下文曲线、费用/容量、故障及恢复均未执行；13份受管理文档累计修改及被忽略的`.local/context.md`仍在本地，未提交/推送。后续实际实现需先冻结工程、模型/词典/策略与数据manifest，建立受控夹具并按D1–D4交付；不能把此次研究或论文分数当成生产验收。
+
+## 12 2026-10-28整体补审与V1.2修订2
+
+本轮需求是再次整体review方案，按需补充完善，继续不启动开发。开始时checkout为main，HEAD及本地origin/main为`b093074ccebf6d50bd3d7f0dd0a84d1431ec7a76`，已有第9–11节13份文档修改；继承并保留，未reset。第11节“API未变、02/06全文未变”是本轮前的历史核查结果，不能用于描述修订2。
+
+### 12.1 结论与实际修订
+
+整体边界、L0–L3逻辑分层和A/B/C、D1–D4切片可继续作为实施基线；尚不具备上线或效果结论。主审与三路只读复核发现反例后，已直接修订00–04及06，决策归纳见07§5–6：
+
+1. 必要约束独立完整核验，不受6项一般偏好/160普通候选cap裁掉；超token/item/字节限返回422，不可核验503/504，不借safe partial漏约束。
+2. 已擦除镜像的合法后续有序事件以policy_suppressed安全消费，applied回执增加import_outcome；不物化正文/新修订，但仍执行旧raw主张失效及blocked origin门禁，推进连续水位且不阻无关流。原操作结果重放不换latest。
+3. 控制面grant允许显式枚举最多32域，单对象及显式查询filter仍8；省略过滤不截前8，owner操作须全目标授权。窄域/窄主体首读前核完整标签证明，未知正文只向owner_space且当前全域授权者交付或拒返。
+4. 产品本地业务/event/seq/Outbox须原子或等价可恢复，回滚不留无法解释的序号孔洞；跨系统仍为saga。
+5. facts实际排序键按time_basis；date有效期须唯一可靠来源时区，否则要求带偏移timestamp；valid_at仅筛当前可用头，不回放被替代旧修订。heartbeat失租/断档须discard并reset；大范围resolved_targets保留有界selector，不截断实际执行。
+6. P0/P1区分90%/5%/5%池流量与实际冷首读，另做100次缓存冷启动阶段；模型、RRF、预算及SLO数值不变。04§5.2将修订反例纳入既有C/A及D阶段；主矩阵未增另一套编号。
+
+本轮累计16份受管理文档修改，包括原13份及02、06、07；AGENTS.md与外部Agent仓库未改，不新增运行依赖、接口端点或首发功能。入口和完整衔接Prompt同步修订2。正文细则以分册为准，此处不是第二份合同。
+
+### 12.2 实际验证与Git状态
+
+实际执行`git status --short`、`git rev-parse HEAD`、`git diff --stat`、`git diff --numstat`、`git diff --check`、`git check-ignore -v .local/context.md`及临时Python 3静态程序，结果：
+
+- 仓库24份Markdown的144个相对文件链接、13个标题锚点、围栏检查通过；49个历史绝对路径链接按交接约定不当作本机有效路径验收。
+- 全仓35个JSON围栏可解析；本次相对起点仅heartbeat.required_action改为discard_all_bundles_and_reset，其余示例逐字不变，canonical_injection与SHA-256及顶层purpose/items/gaps相同。第11节的34个计数有遗漏，本轮按全仓统计更正为35。
+- 16条B、34条C/A及15条H主矩阵ID保持一致；公共schema注册表、04§1.1模型/索引规则、RRF及预算数值未变。P0 20×5、P1 1×100均为100个计划冷启动样本，只核算了计划，未执行压测。
+- 当前合同入口及00–04/06版本头均为修订2；`.local/context.md`仍被忽略。外部Agent HEAD仍为`5d38b2cd6307aab9c8dec2c475b1bebf886d8283`，仍只有原4份文档修改，本轮未改外仓。
+- 第一轮基线对照脚本因`git ls-files`默认转义中文路径而未跑完；改用`git ls-files -z`后完整重跑通过。没有将失败程序的局部检查当作完整通过。
+
+当前仍无服务源码、依赖清单、迁移、自动化测试或运行报告；C/A/H与04§5.2、真实模型/效果、性能和恢复均未执行。本节随累计16份文档变更形成交付快照，沿用用户此前允许提交和推送的授权；包含本节的Git提交是追溯入口，实际提交及远端同步结果需以Git命令核对，不在文件里硬编码包含自身的commit。
+
+### 12.3 未完项与后续入口
+
+- 按D1先冻结工程/数据库/依赖、ledger故障域及读侧核验、产品工具与Outbox映射、paid invocation/重试映射、能力和评测manifest；然后才进入实现。本次无代码开发。
+- D3失效/full消费者和D4真实中文效果、P0/费用及恢复报告全部待执行；D1/D2完成不代表可上线。高级摘要、接入前历史bootstrap、自动巡检/巩固、图或RL继续按明确需求后置。
+- demo HTML仍缺，无法重放原界面；两个中文RL文章无原文/链接，无法唯一核验。已定位RTF和固定Agent版本足够支持本轮合同审查，缺失材料不阻塞已完成部分。路径采用`.local/context.md`，其余固定来源及限定见第9–11节。

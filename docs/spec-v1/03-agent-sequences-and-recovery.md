@@ -1,8 +1,8 @@
 # V1：Agent 内部时序、状态机与异常恢复
 
-版本：设计 V1.2 修订1，2026年10月27日整体审查修订。
+版本：设计 V1.2 修订2，2026年10月28日整体审查修订。
 
-状态：开发与验收合同草案；本文件规定目标行为，不表示现有 Agent、demo 或记忆服务已经实现。日期：2026-10-27（America/New_York）。范围、模型和接口分别以本目录其他规格为准；本文件说明调用这些接口时必须维持的运行约束。
+状态：开发与验收合同草案；本文件规定目标行为，不表示现有 Agent、demo 或记忆服务已经实现。日期：2026-10-28（America/Los_Angeles）。范围、模型和接口分别以本目录其他规格为准；本文件说明调用这些接口时必须维持的运行约束。
 
 ## 1. 运行边界与不可破坏的约束
 
@@ -52,7 +52,11 @@ V1 不以有效 consumer 租约、heartbeat 或暂未收到 change 代替在线 
 
 context 默认预算为 1,200 tokens、8 个 evidence items、1,800ms deadline；服务硬上限为 4,000 tokens、20 items、3,000ms。deadline 包含同步鉴权、版本检查、召回及组装。V1 前台不调用 LLM 规划器、Observer 或摘要生成器；后台富化可独立失败。预算是 memory 数据预算，不是主 Agent 整体输入/输出预算。
 
+2026-10-28补充分层衔接：上述prepare、补查及使用门禁对应[00§4的L3受控交付](00-boundaries-and-invariants.md#41-memoryservice内部逻辑分层)。L3可以使用有效原文、明确记忆及已启用摘要，不要求先生成日/周摘要或完整画像。画像/偏好进入模型时仍是带版本、用途及失效依赖的数据；不规定把它放进不可变system前缀。宿主runtime/context epoch继续作为自身准入门禁，MemoryAdapter须遵守；服务不新增contextEpoch字段，也不以bump宿主epoch替代bundle validate、change清理或reset。具体宿主若需刷新缓存/epoch，由适配层保持该宿主约束并验证失效范围，不把它变成跨Agent共享的服务协议。
+
 ### 2.2 当前 agent-service 的落点与新增工作
+
+本机路径按项目`.local/context.md`映射：参考宿主为`agent-service/apps/agent-runner`，入口`src/main.ts`装配运行服务；会话、turn与模型/工具循环主要位于`packages/core`，包括`src/session/host.ts`的SessionHost。“通用记录型Agent”指承担记录理解、产品工具编排和MemoryAdapter接入的应用角色；agent-runner提供其运行宿主，不能据此认为点滴记忆接入已经交付。下列原机绝对链接保留审计来源，实际查阅时映射到本机根并核对commit与符号。
 
 已静态核对参考仓库：`LifecycleHookService` 已定义 `beforePrompt`、`beforeModelStep`、`beforeTool` 及观察阶段，但配置类型中的 `memory-injection` 只有固定 `prefix/append`；中间件只是拼接静态文本。[类型与配置](/Users/zhangguoqiang/ai-workspace/claude-workspace/meetyou/agent-service/packages/core/src/hooks/lifecycle-types.ts:50)、[静态拼接实现](/Users/zhangguoqiang/ai-workspace/claude-workspace/meetyou/agent-service/packages/core/src/hooks/middleware.ts:225)。因此，远程动态记忆不能被描述为现成 hook 功能。
 
@@ -107,9 +111,13 @@ API 使用 `read_after={write_token?, external_barriers?, required_sources?}`：
 
 RecordService commit、其 Outbox、MemoryService 失效、消费者清理是跨系统 saga，不能宣称同一事务。MemoryService 对旧证据不可见的本地保证始于其失效操作 **applied 回执**，不是产品记录刚 commit、通知尚未到达的时刻。
 
+产品本地必须在返回committed回执前，以同一事务或等价可核对的恢复协议持久化业务变更、稳定event/seq及Outbox；不允许业务已提交但事件尚无耐久恢复依据的崩溃窗口。序列分配与回滚不能留下要求Memory永久等待的孔洞；若权威流设计允许空位，须提供可核对的终结/对账证明，而非Memory自行跳号。这是产品本地提交前置，不是跨系统分布式事务；独立产品端发生的编辑/删除也须覆盖。
+
 产品/完整接入宿主在发起更正、删源、撤权时先建立 owner/entity/domain 级持久 pending fence，`fence_id=action_id`。后续相关读取按全部未关闭fence的范围并集阻断或等待各自barrier。尚未发出请求且已持久取消，或权威终态证明该动作未提交且不会迟到提交时，按该依据关闭fence；普通超时、NOT_FOUND、lease到期不构成未提交证明。结果unknown保持fence。已committed动作只有Memory应用到对应event/barrier后才能关闭其fence，不能用另一个并发动作的成功回执解除整个域阻断。
 
 RecordService commit后同步加速通知和Outbox重试必须投递同一ordered_import事件、沿用stream/seq/event/hash；只有对应applied回执或连续barrier满足才关闭该动作fence。失败时正式记录可以已改，记忆清理仍显示pending。本产品如果承诺多个Agent在产品commit后都立即停止使用旧历史，这些宿主必须共享持久pending fence；独立第三方即便完整实现MemoryService生命周期，仍只能从通知接收/校验起停止旧包，不能凭空知道未送达的产品更正。
+
+若外部镜像此前被Memory-only erase，该更新可按01/02的policy_suppressed安全消费并满足连续barrier；宿主保持“业务已更正、镜像受擦除策略抑制”，不能将applied说成新正文可读，也不为补镜像重跑产品工具。
 
 删除/撤权遇到网络隔离时，不能向用户宣称“所有 Agent 已忘记”。页面分别呈现业务删除完成、记忆失效/清理进度和未确认消费者。对无法控制的宿主，服务撤销后续读取凭证和 bundle 使用权，但不能证明它已删除之前复制的文本。
 
@@ -249,7 +257,7 @@ source 的当前可见性与后台任务进度必须分开。源表最少持久�
 | import delivery `received` | 有缺口→waiting_for_predecessor；前序齐全→applying；事件冲突→quarantined | accepted/inbox不等于来源已applied或可检索 |
 | import delivery `waiting_for_predecessor` | 连续前序补齐→applying；异常→quarantined | 不跳序推进stream watermark；长期缺口报警/权威对账 |
 | import delivery `applying` | 事务成功→applied；有权威替代证明→superseded；冲突/不可修复→quarantined | worker接管先核对事务回执；无合法证明不能跳过毒消息凑水位 |
-| import delivery `applied/superseded` | 对该event终态 | applied表示来源镜像与失效门禁已应用；superseded必须保留权威对账证明；两者不表示embedding完成 |
+| import delivery `applied/superseded` | 对该event终态 | applied按import_outcome区分source_applied镜像/门禁与policy_suppressed无正文消费；superseded须保留权威对账证明；均不表示embedding完成 |
 | derivation job `queued` | 抢lease→running；来源版本已旧/失效→superseded | worker重启后可重新抢未执行任务 |
 | derivation job `running` | 有效产物持久并发布→published；输入已旧→superseded；错误→failed | 发布前CAS核对source version/generation/policy；迟到结果不能复活旧值 |
 | derivation job `failed` | 可证明安全且有界重试→queued；否则保持failed并标retry_wait/dead_letter/unknown_paid_call恢复原因 | 有退避、next retry、attempt上限；付费调用未知先核对，不无条件重新调用 |
