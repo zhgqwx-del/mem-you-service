@@ -4,6 +4,8 @@
 
 状态：开发与验收合同草案；本文件规定目标行为，不表示现有 Agent、demo 或记忆服务已经实现。日期：2026-10-28（America/Los_Angeles）。范围、模型和接口分别以本目录其他规格为准；本文件说明调用这些接口时必须维持的运行约束。
 
+2026-10-30说明性补充：第4节增加场景导航、接口职责对照和贯穿写入、后续读取、更新的两组时序图。继续采用V1.2修订2合同，不新增API、能力或已实现/已验收声明。
+
 ## 1. 运行边界与不可破坏的约束
 
 产品发送一律进入通用记录型 Agent。`MemoryAdapter` 是 Agent 应用/运行时内的可信编排组件，调用独立 MemoryService；它不是模型 prompt 中“请先回忆”的约定，也不是前端直接访问个人记忆的客户端。适配器可以使用 REST/SDK，向模型暴露的补查、记忆写入能力可以包装成 MCP 工具。传输方式不改变权限、版本、幂等和删除语义。
@@ -123,6 +125,29 @@ RecordService commit后同步加速通知和Outbox重试必须投递同一ordere
 
 ## 4. 代表调用时序
 
+本节先区分确定性保存、多事件解析、更正和查询，再用§4.7–4.8把同一案例跨多次用户输入的写、读、改串起来。它们是既有合同的解释图；参与方表示职责，不要求分别部署成微服务。
+
+| 想看什么 | 阅读位置 | 重点 |
+|---|---|---|
+| 已确认字段直接保存 | §4.1 | picker可明确skip；正式保存不等待记忆 |
+| 一次自然语言输入包含多项记录 | §4.2–4.3 | 一个输入组、多个稳定业务条目，明确部分可先提交 |
+| 正式条目更正与立即统计 | §4.4 | 产品回执、pending fence、Memory有序应用及消费者清理 |
+| 纯查询、偏好、用途限制及删除 | §4.5–4.6 | 查询不新增生活事件；偏好、停用和擦除各有不同语义 |
+| 通用偏好的写入→以后召回→改变偏好 | §4.7 | 只用Agent与MemoryService即可成立，无须RecordService |
+| 饮水记录的写入→回忆背景→更正数值 | §4.8 | 原输入与正式镜像关联，正式账本与记忆证据协同 |
+
+| 调用 | 在流程中的用途 | 容易混淆的边界 |
+|---|---|---|
+| `POST /v1/sources:upsert` | 可信组件镜像原输入或正式条目的来源、版本和出处 | 原输入用sync；external_record统一ordered_import。来源已应用不等于全部抽取/索引已完成 |
+| `POST /v1/memories:remember` | 依据有效来源显式保存偏好、约束或获授权记忆候选 | 不代替records.commit，也不是每次回答结束的必调尾钩；自动抽取可另行产生记忆 |
+| `POST /v1/context:prepare`及`POST /v1/evidence:batchGet` | 前者准备适用的历史证据包，后者按获授权引用精确补查 | prepare的current_input只是查询线索，不自动存储来源；首次及后续入模、相关工具和交付前均受bundle校验约束 |
+| `POST /v1/memories/{memory_id}:revise` | 依据新证据及expected_memory_version修订Memory中的同一记忆 | 不修改产品正式条目；不能以记忆更新掩盖产品账本中的错误 |
+| 产品工具`records.correct` | 依据精确目标、expected version和稳定action更正正式条目 | 产品协议由外部RecordService负责；提交后通过同一可信Outbox流传播到Memory |
+
+下列新图省略重复认证、预算、幂等key及全部失败分支，仍执行§1–3和02的完整合同。每个真实新输入有自己的operation与planned source/group；点滴聊天路径同时绑定原生origin，其他非聊天来源不伪造聊天身份。同一输入的网络重试、重送复用这些身份及首写payload，不换ID。当前输入和同组镜像不作为本轮历史证据。自由输入在首个模型请求前prepare；每个新模型step、依赖记忆的工具执行和结果交付前，对全部实际依赖的context/read-result bundle在线validate；图中的“校验所用bundle”均指这个完整集合。失效时先清理再以新preparation revision重取，不继续使用旧正文。所有正文补查均登记usage_bundle，不能因处于工具结果中而绕过追踪。
+
+图中原输入sync成功、读取屏障满足后才展开正常分支。镜像暂时失败时由可靠journal按原身份补送，记忆状态保持pending；prepare、必要约束核验或屏障失败须按§2–3明确等待、降级或停止，不能伪造正常空历史后继续。是否能仅凭当前输入推进取决于既有授权、工具和必要约束门禁；已具备确定性保存条件的路径仍按§4.1执行。来源镜像是证据写入，不把其失败或重送变成新的正式记录请求。
+
 ### 4.1 已确认 picker：无须主模型的确定性路径
 
 ```mermaid
@@ -221,6 +246,215 @@ sequenceDiagram
 源级 forget 建立 durable exclusion/tombstone。删除全部 memory 时记录已覆盖的来源范围、generation 和再导入策略；默认不自动重灌历史，新增来源可以依新策略摄取。删除后晚到的工作、旧 event 重放或模型 completion 不能复活旧证据。用户另行明确重新授权导入才建立新的可审计 generation。
 
 full宿主还须持久维护source/source_group→原消息、工具正文、压缩摘要和反馈的映射，以及自动重注入抑制。memory-only erase不删除产品可靠输入或正式账本，但会话恢复、滚动历史、自动compact、重新抽取、Outbox和历史backfill均不得从这些副本把已擦除内容自动放回模型或Memory。收到失效后先隔离受影响上下文，丢弃其派生并建立干净会话，再ack。用户以后明确要求查看产品保留历史，属于另次明确授权的产品查询用途；不等于重新授权导入Memory，也不能借自动恢复冒充该请求。
+
+### 4.7 通用偏好：写入简短偏好、后续召回、改为详细
+
+此例适用于获授权的通用问答Agent，不需要产品正式账本。图中的BFF表示可靠接收层，也可由Agent宿主承担，不要求额外部署产品后端。偏好使用01已注册的personal.reply_preference schema；brief与detailed是同一偏好的不同当前状态。以下三个阶段共用示意ID，串成一次完整生命周期；分图便于阅读，ID不是新增请求字段。
+
+**阶段一：写入明确偏好。** 原话先成为来源，remember再引用该来源保存偏好。
+
+```mermaid
+sequenceDiagram
+    participant P as 用户与产品BFF
+    participant A as Agent可信MemoryAdapter
+    participant L as 主模型
+    participant M as MemoryService
+
+    P->>P: 可靠保存“以后回复简短些”
+    P->>A: 输入引用、operation、已认证主体
+    A->>A: 持久绑定原消息origin与source S1、group G1
+    A->>M: sources:upsert，sync创建S1/G1及用户原话
+    M-->>A: source version 1、applied、write_token
+    A->>M: context:prepare，当前输入及G1排除历史
+    M-->>A: 有效历史或正常空包、bundle B1
+    A->>M: bundles:validate，校验所用bundle
+    A->>L: 当前原话与有效B1，识别明确回复偏好
+    L-->>A: remember候选：reply_length=brief、依据S1/v1
+    A->>M: bundles:validate，工具前校验所用bundle
+    A->>M: memories:remember，稳定memory ID、expected version 0
+    M-->>A: memory K/v1、applied、write_token
+    A->>A: 先持久记忆回执，确认本次偏好写入
+    A->>M: bundles:validate，交付前校验仍使用的bundle
+    A-->>P: 回复偏好已保存
+
+```
+
+**阶段二：后续读取。** 新问题通过context取得适用偏好，校验后影响本次回答。
+
+```mermaid
+sequenceDiagram
+    participant P as 用户与产品BFF
+    participant A as Agent可信MemoryAdapter
+    participant L as 主模型
+    participant M as MemoryService
+
+    P->>P: 可靠保存新的普通问题，创建新operation
+    P->>A: 当前问题与独立输入身份
+    A->>M: context:prepare，read_after.write_token为前次偏好写回执令牌
+    M-->>A: 偏好K/v1、来源S1/v1与新bundle B2
+    A->>M: bundles:validate，校验所用bundle
+    A->>L: 当前问题与有效偏好证据
+    L-->>A: 按简短偏好生成回答
+    A->>M: bundles:validate，交付前校验所用bundle
+    A-->>P: 简短回答；不因这次问答新增生活事件
+
+```
+
+**阶段三：更新同一偏好。** 新要求是新的用户来源，使用CAS把原记忆更新为下一版本。
+
+```mermaid
+sequenceDiagram
+    participant P as 用户与产品BFF
+    participant A as Agent可信MemoryAdapter
+    participant L as 主模型
+    participant M as MemoryService
+
+    P->>P: 可靠保存“以后改为详细回答”
+    P->>A: 新operation及新的原消息身份
+    A->>A: 绑定新的source S3、group G3及origin
+    A->>M: sources:upsert，sync创建S3/G3及新用户原话
+    M-->>A: 新依据S3/v1、applied
+    A->>M: context:prepare，排除G3，读取现有偏好K/v1
+    M-->>A: 当前偏好及bundle B3
+    A->>M: bundles:validate，校验所用bundle
+    A->>L: 当前新要求与现有偏好，识别state_change
+    L-->>A: revise候选：目标K、expected version 1、新依据S3/v1
+    A->>M: bundles:validate，工具前校验所用bundle
+    A->>M: memories/K:revise，state_change、完整replacement=detailed
+    M->>M: 同事务生成K/v2并失效旧修订依赖
+    M-->>A: applied、K/v2及write_token
+    A->>A: 先持久回执，禁用并清理受影响的旧bundle/缓存
+    M-->>A: changes：旧偏好依赖失效
+    A->>M: 按连续changes确认清理，必要时reset
+    A-->>P: 依据当前输入和写入回执确认已改为详细
+    Note over A,M: 后续若需记忆，先新revision prepare及validate，再使用K/v2
+```
+
+首次remember的source_refs指向S1/v1；revise的replacement.source_refs与supporting_source_refs使用新的S3/v1，并按schema提供明确生效范围。新用户输入保留G3，不把它改造成G1的重送；记忆K保持稳定身份，以新版本表达状态变化。若存在另一当前头或CAS冲突，执行02的slot/版本冲突处理，不能改memory ID另写一份来绕过。更新使旧bundle失效后，最后一句确认仅依当前输入及实际写入回执；若还需生成依赖历史的解释，应先清理、重新prepare/validate后再调用主模型。
+
+图中后续普通问题可以只留在可靠操作/会话日志；若按已注册策略另行镜像，仍是user_input，不把问句抽成已发生事实。读取context不会自动保存问题。偏好变更不是删除旧来源，也不提供任意旧revision回放能力；当前使用、历史原话取证及隐私擦除仍分别遵守02。
+
+### 4.8 正式记录：跑步后饮水500ml、回忆背景、更正为300ml
+
+此例把“记录了一笔饮水”与“记得当时跑步回来”的证据用途串在一起。输入为“今天跑步回来喝了500ml水”，产品已选本人且单位明确；跑步背景可保留为user_reported原文，不假定存在运动typed parser或自动新增另一笔正式运动事件。以下三个阶段共用来源S1、输入组G1和正式条目D，展示同一记录跨多轮的完整流程。
+
+**阶段一：写入正式记录和来源镜像。** 产品回执确定是否保存成功，记忆应用及派生另报状态。
+
+```mermaid
+sequenceDiagram
+    participant P as 用户与产品BFF
+    participant A as Agent可信MemoryAdapter
+    participant L as 主模型
+    participant R as RecordService
+    participant O as 可信Outbox导入器
+    participant M as MemoryService
+
+    P->>P: 可靠保存“今天跑步回来喝了500ml水”
+    P->>A: 可靠输入引用、operation与已选主体
+    A->>A: 持久绑定原消息origin、source S1与group G1
+    A->>M: sources:upsert，sync镜像原输入S1/G1
+    M-->>A: user_reported来源S1/v1、applied
+    A->>M: context:prepare，排除当前S1/G1
+    M-->>A: 相关历史或空包、bundle B1
+    A->>M: bundles:validate，校验所用bundle
+    A->>L: 当前输入与有效B1，解析饮水候选
+    L-->>A: 500ml水、主体、发生时间及原文依据片段
+    A->>M: bundles:validate，工具前校验所用bundle
+    A->>R: records.commit，稳定action/item及来源关联
+    R->>R: 原子或可恢复地持久正式条目、event/seq及Outbox
+    R-->>A: committed记录D/v1、mutation barrier
+    A->>A: 先持久正式回执；“已保存”由此确定
+    R-->>O: 从耐久Outbox投递同一事件
+    O->>M: sources:upsert，ordered_import镜像D/v1，共用G1
+    M->>M: 核验去重；满足连续顺序时应用正式来源
+    M-->>O: accepted或applied，缺前序时等待
+    Note over O,M: accepted事件待前序补齐才应用；抽取和索引可异步
+    A->>M: bundles:validate，交付前校验仍使用的bundle
+    A-->>P: 已记录500ml，分别展示memory状态
+
+```
+
+**阶段二：读取背景证据。** context先召回相关依据，模型可按引用补查原话；补查结果也登记依赖。
+
+```mermaid
+sequenceDiagram
+    participant P as 用户与产品BFF
+    participant A as Agent可信MemoryAdapter
+    participant L as 主模型
+    participant M as MemoryService
+
+    P->>P: 可靠保存“上次跑步后喝水是什么情况？”
+    P->>A: 新operation、当前问题及独立输入身份
+    A->>M: context:prepare，answer_history，read_after带D/v1回执barrier
+    M-->>A: 当前正式镜像500ml、跑步背景及来源引用、bundle B2
+    A->>M: bundles:validate，校验所用bundle
+    A->>L: 当前问题与有效历史证据
+    L-->>A: 按已有来源引用请求补查原话
+    A->>M: bundles:validate，工具前校验所用bundle
+    A->>M: evidence:batchGet，可信wrapper附consumer_context
+    M-->>A: 当前可披露原话及usage_bundle E2
+    A->>A: 持久登记E2及来源/版本依赖
+    A->>M: bundles:validate，校验B2、E2及其他仍使用的包
+    A->>L: 获授权的补查结果，作为外部证据数据
+    L-->>A: 回答上次记了500ml，并说明原话中的跑步背景
+    A->>M: bundles:validate，交付前校验所用bundle
+    A-->>P: 带来源的回忆，不新增饮水事件
+
+```
+
+**阶段三：更正原记录并停用旧证据。** 先更正正式账本，再通过有序流更新记忆；未追上时保留屏障并显示pending。
+
+```mermaid
+sequenceDiagram
+    participant P as 用户与产品BFF
+    participant A as Agent可信MemoryAdapter
+    participant L as 主模型
+    participant R as RecordService
+    participant O as 可信Outbox导入器
+    participant M as MemoryService
+
+    P->>P: 可靠保存“那次不是500，是300ml”
+    P->>A: 新operation及新的原消息身份
+    A->>A: 绑定新的source S3、group G3及origin
+    A->>M: sources:upsert，sync镜像更正原话S3/G3
+    M-->>A: 新用户来源S3/v1、applied
+    A->>M: context:prepare，排除G3并读取目标线索
+    M-->>A: 可用目标引用与bundle B3
+    A->>M: bundles:validate，校验所用bundle
+    A->>L: 更正原话、当前证据及实际记录引用
+    L-->>A: 更正候选，目标D，不能只凭文本相似度选目标
+    A->>M: bundles:validate，目标核对工具前校验所用bundle
+    A->>R: 读取/核对精确目标D及当前expected version
+    R-->>A: 获授权的目标D/v1，歧义则先追问
+    A->>M: bundles:validate，工具前校验所用bundle
+    A->>A: 持久建立pending fence，fence_id=action_id
+    A->>R: records.correct，目标D、expected version 1、300ml
+    R->>R: 原子或可恢复地持久D/v2与同一有序流的Outbox事件
+    R-->>A: 正式更正回执、D/v2及对应barrier
+    A->>A: 先持久业务回执，禁用相关旧历史
+    R-->>O: 投递更正事件；同步加速也沿用同event/seq/hash
+    O->>M: sources:upsert，ordered_import更新D的原稳定镜像
+    alt 对应连续barrier已应用
+        M->>M: 旧镜像失效；关联原输入500ml主张标historical_only
+        M-->>O: applied回执及对应barrier
+        M-->>A: changes：旧bundle及原消息断言依赖失效
+        A->>A: 先禁用并清理旧context、工具缓存与派生摘要
+        A->>M: 连续changes清理ACK，必要时reset
+        A->>A: 核对该action的barrier，关闭对应pending fence
+        A-->>P: 依据正式回执确认已改为300ml，分列记忆清理状态
+    else 已accepted但未连续应用，或投递尚未成功
+        O->>O: 从耐久Outbox按原事件身份重送/核对
+        A->>A: 保持相关pending fence，不使用旧500ml证据
+        A-->>P: 依据正式回执确认已改为300ml，memory pending
+    end
+    Note over A,M: 后续历史读取需满足更正barrier，并重新prepare/validate
+```
+
+原输入S1与条目D的外部镜像共用G1，是同次输入的两种证据；后来的问句和更正输入各有自己的operation与planned group。D更正后仍是同一条目及同一外部镜像身份，不新添一杯水，也不把更正原话S3改成G1。外部镜像沿用原绑定，携带可信外部版本及原输入证据关联；新用户更正依据与产品动作的映射由Agent/RecordService journal保存。来源或回执先到的预约/门禁按§2.3、01和02处理，不能依赖图示顺序才能防止旧主张复活。
+
+来源写入有两条路径，但不会产生两笔正式饮水：sync保存原话，ordered_import保存权威记录的检索镜像。accepted仅表示接收入站事件，连续applied才满足对应屏障，抽取/向量索引另报覆盖。若只需确认保存或更正，Agent可以直接依据当前输入及持久正式回执回复；Memory失败不撤销或重跑已提交产品工具。若查询“今天一共喝多少”，另向产品metrics/list带产品读屏障查询，不能把图中的历史证据相加当正式总量。
+
+更正应用须同时限制关联原输入旧主张；不能只更新正式镜像却让原话500ml经检索或迟到worker重新成为当前事实。有可靠片段映射时保留无关跑步背景；没有时按01/02对同组受影响主体/domain保守限制并给gap，不把整组当成一条可随意删除的事件。消费者清理覆盖实际保留的原消息、context、read-result、摘要与可重放反馈；其他已登记full消费者也经各自changes/ack处理。图中一个宿主ACK不能代表所有宿主都已清理。若镜像被Memory-only erase抑制，沿用policy_suppressed安全消费及原删除门禁，不借本例重建正文。
 
 ## 5. 五组状态机
 

@@ -4,6 +4,8 @@
 
 2026-10-28补充§4.1–4.5的内部分层、快慢路径与可替换writer解释，并按修订2补齐授权及有序消费门禁；沿用既有对象、检索模型/RRF参数与发布切片，变更来由见07§5。
 
+2026-10-30补充§2.1–2.3及§3.2的阅读说明，解释组件位置、Outbox、来源身份和镜像流程；仅重述V1.2修订2已有合同，不改变接口、发布范围或验收要求。端到端示例见[03第4节](03-agent-sequences-and-recovery.md)。
+
 独立记忆服务向获授权 Agent 提供记忆来源摄取、记忆整理、相关证据召回、记忆纠正与失效。它持有自己的记忆数据与来源镜像，不取得产品正式记录的写入权。产品把一次记录请求交给通用记录 Agent；Agent 内可信适配器调用记忆 API，模型按需使用记忆工具；产品业务记录及其统计由产品工具完成。
 
 本版收紧此前架构讨论中的边界：正式体重/饮水/账目总量、完整产品时间线、日历与图表不是记忆服务核心 API。记忆中的数值和外部记录引用用于提供证据，不能构成另一份正式台账。
@@ -38,6 +40,59 @@
 
 RecordService 是逻辑职责，不要求立即新建一个微服务。已有业务后端继续承担它；业务尚未实现时，可在产品后端同一部署实现。MemoryService 保持独立 API、数据所有权和授权边界，不与产品通过共享表完成集成。候选的拆分、待补/拒绝状态、candidate→正式条目映射及映射CAS归Agent/RecordService journal；MemoryService只维护来源关联与稳定外部条目绑定，不必建另一套candidate_binding状态机。
 
+### 2.1 组件位置与部署含义
+
+BFF是Backend for Frontend，即面向前端体验的后端层。本项目用“产品后端或BFF”指负责可靠接收输入、业务授权及页面数据的可信后端；可以由已有产品后端承担，不要求为了这个名称另建服务。
+
+| 名称 | 所在侧与作用 | 是否要求独立部署 |
+|---|---|---|
+| RecordService | 产品后端侧的正式条目、回执、统计及变更发布逻辑 | 否；可与现有产品后端同部署 |
+| Chat History Adapter | 产品/Agent宿主侧的授权来源接口；持有聊天格式和源库访问知识，提供有界取证及生命周期控制 | 否；可作为agent-service内受保护模块，MemoryService经注册接口访问 |
+| MemoryAdapter | 通用记录Agent的可信运行时/应用编排器内；管理context决策、历史注入、使用前验证及失效清理 | 属于Agent接入层，不属于MemoryService内部 |
+| Memory摄取、补偿和派生worker | MemoryService侧；管理任务、来源版本、抽取、索引及发布门禁，通过注册History Adapter取证 | 可与API分进程或部署；逻辑上仍是记忆服务的工作项 |
+| MemoryService API与数据 | 独立记忆边界；保存获授权来源镜像及记忆，提供读取和生命周期合同 | 保持独立API、数据所有权及授权边界，不以共享产品表集成 |
+
+因此，RecordService、Chat History Adapter和MemoryAdapter均在MemoryService职责边界之外，但名称不代表它们各自需要一个微服务。History Adapter与MemoryAdapter也不是同一个适配器：前者提供宿主来源，后者控制Agent如何使用记忆。A首发仍需原消息身份及持续删除/撤权通路，可只复用History Adapter的生命周期接口；有界历史扫描按B另行启用，详见[06](06-history-ingestion-and-repair.md)。这些是待实现的组件职责，不表示动态MemoryAdapter或完整接入已交付；参考宿主的既有能力与新增工作见[03第2节](03-agent-sequences-and-recovery.md)。
+
+### 2.2 RecordService的Outbox与完成阶段
+
+这里的Outbox是产品侧耐久保存的“变更事件发件箱”，解决正式记录已经提交、记忆服务暂时未收到通知时的恢复问题。它传递正式结果及其更正/删除，不重新执行一次记录工具。
+
+1. RecordService在返回committed回执前，以同一事务或等价可核对的恢复协议持久化业务变更、稳定event/seq和Outbox。回滚不能留下让Memory永久等待的无解释序号孔洞。
+2. 可信导入器向MemoryService投递该事件；失败时复用同一stream、seq、event及payload/hash重试。前台快速通知也只是加速同一事件，不另走sync替换正式镜像头。
+3. MemoryService在inbox去重并按连续顺序应用事件。收到较大seq但缺前序时仍须等待，不能以最大已见seq代替连续水位。正式提交、记忆应用与消费者清理是跨系统分阶段传播，具体屏障及pending fence见[03第3节](03-agent-sequences-and-recovery.md)。
+
+| 阶段 | 能确认什么 | 不能据此确认什么 |
+|---|---|---|
+| 产品committed回执 | 正式业务变更已可靠提交，且有可恢复的事件依据 | MemoryService已收到或完成清理 |
+| Memory的`accepted`／HTTP 202 | 事件已耐久接收，尚待连续应用 | 新来源已可读取或旧证据已失效 |
+| Memory的`applied`回执 | 对应变更已按合同应用；ordered_import还须看`import_outcome` | 抽取、embedding及消费者清理全部完成 |
+| 派生任务完成或消费者清理ACK | 相应任务或消费者阶段已完成 | 其他任务/消费者也全部完成 |
+
+`import_outcome=source_applied`表示来源变更已应用；`policy_suppressed`表示命中合法擦除策略后无正文消费并推进水位，不生成来源版本或派生，也不表示正文可读。原操作回执不保证其版本此刻仍有效，读取仍须核当前授权和版本。MemoryService内部另有派生任务Outbox，与这里产品侧的业务变更Outbox职责不同；精确回执以[02第3节](02-api-contract.md)为准。
+
+例如，把同一杯水从500ml改为300ml后，业务可以已更正而记忆清理仍pending。Outbox恢复投递后，Memory应用更正并限制旧500ml依据；此间宿主按fence/barrier阻止相关旧历史继续使用。重送更正事件不新增第二杯水。
+
+### 2.3 source_group、source、memory、picker与“镜像来源”
+
+| 名称 | 含义 | 示例 |
+|---|---|---|
+| `source_group` | 同一次输入及其后续解释的共同来源身份，由可信宿主预分配并稳定复用 | 一次“午饭面条，还喝了300ml水”的原输入与两项正式结果共组 |
+| `source` | 一份可追溯依据的稳定身份，修订由`source_version`区分 | 原用户输入是一个source；饮食和饮水的正式条目镜像各有自己的source |
+| `memory` | 可管理的有版本陈述、偏好或其他记忆，通常引用精确来源版本；允许的Agent推断须保留会话出处 | “这次午饭时记录了300ml饮水”的证据记忆，不是新增正式饮水条目 |
+| picker | 前端结构化选择/输入控件，不是记忆数据库对象 | 用户确认饮水量、单位、主体及时间的快捷表单 |
+
+同组不等于同一个业务事件，也不表示所有内容合成一个source或memory。组不是正式统计或跨来源事实去重键，不自动授予删除全部成员的权限。已确认picker可直接走类型化校验；当保存和反馈都不依赖历史时，Agent持久记录明确skip并确定性提交，无须先还原成自然语言让模型重新抽取。身份和对象细则见[01第4节及第11节](01-data-model.md)。
+
+“镜像来源”指把获授权的原输入或正式结果作为有来源、有版本的数据保存到MemoryService，以供取证、召回和失效处理。产品仍拥有原输入与正式记录；镜像不把正式写入权交给MemoryService。文中“并同步镜像来源”涉及两条不同路径：
+
+| 路径 | 写入内容及方式 | 回执与含义 |
+|---|---|---|
+| 原输入镜像 | 可信MemoryAdapter以`source_kind=user_input`、`mode=sync`提交原话或已确认字段；按既有CAS、稳定source/group及origin规则写入 | 成功返回`200 applied`，可具有`user_reported`证据身份；不表示RecordService已正式保存，也不等待全部派生完成 |
+| 正式条目镜像 | RecordService提交后，由可信导入器将同一Outbox事件以`source_kind=external_record`、`mode=ordered_import`投递；通过`external_record_ref`绑定正式条目，与原输入共组 | 耐久接收与连续应用分别为`accepted`和`applied`；正式结果的权威来自可信回执，不来自模型文字 |
+
+这里的sync描述MemoryService本地来源应用方式，不是产品与记忆共同提交的分布式事务。确定性保存不必等待原输入镜像；失败由可靠journal沿原计划身份重送，镜像状态保持pending。正式结果快速通知仍走同一ordered_import事件，不改成sync。初始context默认排除本次输入及同组对应镜像，当前输入与本轮正式回执单独提供，避免把当前话重复当作过去事实。写入、读取、更正的端到端例子见[03第4节](03-agent-sequences-and-recovery.md)，API语义见[02第3节](02-api-contract.md)。
+
 ## 3 V1 包含与后置能力
 
 ### 3.1 A：首发必须完成的闭环
@@ -53,6 +108,8 @@ RecordService 是逻辑职责，不要求立即新建一个微服务。已有业
 
 ### 3.2 本版由外部系统承担
 
+“外部”是相对MemoryService职责边界而言，包含自有产品后端、Agent及媒体/领域/调度模块，不特指第三方服务，也不表示这些能力已经实现。下表分配完整产品需要承担的工作；已有模块可复用，缺少的模块仍需建设并验证。
+
 | Demo 能力 | 归属 | MemoryService 的作用 |
 |---|---|---|
 | 体重、饮水、饮食、财务等条目提交 | RecordService 与受控 records 工具 | 镜像成功回执及授权内容，关联历史 |
@@ -64,6 +121,8 @@ RecordService 是逻辑职责，不要求立即新建一个微服务。已有业
 | 提醒和条件触发动作 | 外部任务/调度服务 | 可记住未完事项及外部任务引用，不负责定时执行或发送消息 |
 
 完整产品因此仍需产品后端与 Agent 的工作项。本设计会列出它们必须满足的集成合同，但不会把这些模块改名后全部装进记忆服务。
+
+点滴曾有HTML交互demo；仓库保存的[demo源码审计](../../research/demo-product-audit.md)记录了本地React state/localStorage逻辑及大量固定数据、定时动画和mock，并未证明该文件已连接Agent、MemoryService或真实业务API。因此“有交互demo”不代表已经有完整后端demo或这些外部能力已交付。本说明沿用已保存的审计；[交接说明](../cross-computer-handoff.md)记录原HTML尚缺，本轮未重新核对该文件或外部项目。现行合同仍是待实现、待验收的设计。
 
 ### 3.3 B：可选第二切片
 
