@@ -2,6 +2,8 @@
 
 版本：设计V1.2 修订2，2026年10月28日。本文是启用持久聊天连接器时的开发合同，与00–04共同使用；不是已经实现的功能。05及07是审查记录，不承担接口定义。
 
+2026-11-02补§6.1的agent-service原生身份、读取及独立控制ACK落点；沿用已有合同和A/B/C范围，不把现有公共items/SSE、工具observer或Outbox完成标记当作完整来源feed。
+
 **持久聊天是可按需重新取证的来源库；记忆是其有版本、有使用限制的派生结果。** 应支持从聊天补采遗漏来源、抽取漏记内容及重算自动记忆，但不把每条聊天都变成事实，也不靠每日全库“做梦”代替可靠的摄取和补偿。
 
 ## 1 边界与依据
@@ -137,6 +139,22 @@ Adapter不能提供一致性快照时只能标bounded_reconciliation并披露已
 6. 凡历史来源进入生产可召回存储，手工与自动都先具备可靠持续删除/撤权控制或等价门禁。只在抽取时检查不足以撤掉既有记忆；断流则暂停相关范围读取/发布直至对账。尚不具备时只能preview或隔离试验，不能先手工导入再长期不跟删除。
 
 普通GET 404不能区分源删除、越权与暂时不可见：先标source_unavailable并停止使用，不声称已物理擦除；权威删除/撤权控制再决定清理。原生session删除是普通用户不可恢复的终态，收到其权威回执后按上游删除执行来源失效与erase，不等物理purge或宽限期结束。正式业务条目是否删除仍由产品工具决定。
+
+### 6.1 agent-service实际接口与控制链的映射
+
+2026-11-02静态核对固定commit`ca24972f6094bbf48658e60113d19112290e2544`；下列路径相对agent-service根。原[聊天存储审计](../../research/chat-storage-audit.md)保留其旧commit快照，本节补当前宿主落点，不表示新增接口已实现。
+
+| 已有事实与源码位置 | 本方案的接入含义 |
+|---|---|
+| `packages/protocol/src/item.ts` 70–90、133–141行：稳定item/session/turn、原content、effectiveContent及contextCompaction分开 | conversation_id映射真实session.id，item_id映射真实userMessage.id；source_system_id另绑定部署命名空间。摄取原content，不取模型有效窗口或summary |
+| `apps/agent-runner/src/app.ts` 1894–1898行；`packages/store/src/mysql/store.ts` 46976–46999行；`packages/store/migrations/0001_init.sql` 76行 | 公开items仅有afterSeq/limit，SQL按seq/item_id排序但游标仅seq，不能据此证明任意范围完整。B需受保护导出投影或可证明完整的单turn，仍执行§5的快照/覆盖及当前性合同 |
+| `packages/core/src/session/host.ts` 1843–1864行 | session tombstone、deletion generation及terminal/outbox同提交，可作A的源删除依据；不等物理purge，也不因此授予删除正式业务记录的权限 |
+| `packages/core/src/lifecycle/outbox-dispatcher.ts` 71–80、145–150行 | 当前dispatcher publish到EventBus即complete。可复用上游权威事件，不能把该completed当作Memory applied或独立消费者ACK |
+| runner的`src/app.ts` 1905–1925行；`docs/design/08-tool-hooks.md`§6 | 删除后新SSE订阅404，现存流terminal后关闭；tenant webhook是受限工具observer。两者均不能充当持续、可重放及独立确认的Memory删除控制feed |
+
+A需要新增Memory专属的控制订阅/投递、checkpoint及`read_control/ack_control`适配：取得权威删除generation或产品授权撤回，持久关联到来源范围；Memory本地失效applied后才确认。不能复用其他dispatcher已消费的游标，也不能从普通404或模型文字生成撤权证明。该工作不要求启用B扫描、外部产品自动清理或宿主物理purge；宿主既有default-off/受限生命周期门禁保持有效。
+
+另外，Memory向Host发布changes/reset、Host抑制原消息及派生投影并清理后consumer ACK，是反向的**使用清理链**。它与上述源控制链各自持久恢复，不互相代替回执；两者都不通过新建用户turn执行。Host副本与摘要的消费门禁及已有缺口见[03§2.2](03-agent-sequences-and-recovery.md#22-当前-agent-service-的落点与新增工作)，验收见[04§5.4](04-evaluation-and-acceptance.md#54-agent-service宿主接入的固定变体)。
 
 ## 7 记忆补偿与发布规则
 

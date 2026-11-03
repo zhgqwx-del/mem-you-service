@@ -1,6 +1,6 @@
 # 跨电脑开发交接说明
 
-最近核对日期：2026-10-30（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，最新概念/时序阅读补充、验证和未完项见第13节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期：2026-11-02（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，最新提交前复核与交付记录见第16节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
 
 ## 1 当前到底交付了什么
 
@@ -410,3 +410,52 @@ git diff --check
 ### 13.3 未完项与接续
 
 此次阅读补充已完成。若继续完善文档，先核对实际HEAD及工作区，再按具体问题定位00–04/06；若用户后续要求开发，仍从04的D1工程与基础合同开始，D3完整生命周期、D4中文效果/P0/恢复验收均待执行。新的图示不构成自动启动实现、历史扫描或真实付费调用的授权。
+
+## 14 2026-11-02 agent-service宿主接入评估与设计细化
+
+本轮用户指定本机agent-service作为通用记录Agent运行时，要求评估完善逻辑架构、依赖和流程的价值与必要性。范围为源码只读核查及本仓设计调整；未启动服务开发。
+
+### 14.1 基线、证据及完成范围
+
+- 本仓起点为干净`main / b1b4d35`；外仓为`/Users/zhangguoqiang/ai-workspace/codex-workspace/agent-service`，干净`main / ca24972f6094bbf48658e60113d19112290e2544`。未fetch/pull，不据本地origin引用断言远端状态。
+- 已核外仓AGENTS、README、PROGRESS当前/相关末节、架构及业务任务/上下文设计，并定向查SessionHost、context、hooks、engine接口、runner装配/读取、记录助手参考、原生item、MySQL分页及生命周期dispatcher。相对旧`5d38b2c`的增量仅9份文档，源码没有因此新增Memory能力。未访问.env、私有配置或.local-run验收原件，未修改外仓。
+- 00新增§4.6具体架构图及业务/来源/使用三类链路；03§2.2明确MemoryAdapter与Host通用门禁分工、历史/水合/摘要前失效、递归依赖与交付/重放；§3.1补产品operation/Runtime身份、创建unknown及回执语义。
+- 06§6.1补原始content/原生身份、受保护导出与独立源控制ACK；04§5.4/§9把实际宿主缺口映射到既有验收及D阶段；07§7记录必要性和取舍，两级入口及衔接Prompt同步。三路独立只读审查后修正源码时序、原生ID持久就绪条件、picker保存与后续反馈的阶段边界及迁移文件路径。
+- 继续采用V1.2修订2；01/02、公共schema/JSON、检索基线和SLO、B/C/A/H主矩阵及A/B/C范围不变。只细化宿主/消费者责任，不声明Runtime规划协议已交付，也不把B扫描、子任务、长期workflow或完整M3/M4/P2列为A新前置。
+
+### 14.2 实际验证与Git状态
+
+实际执行两仓`git status --short --branch`、`git rev-parse HEAD`、`git log`及外仓固定commit间`git diff --stat`，本仓`git diff --stat/--numstat/--check`；另以临时Python标准库脚本检查受管理Markdown、链接/锚点、JSON、主矩阵及旧图保留。结果如下：
+
+- 24份Markdown的176个仓库内相对链接、32个标题锚点及围栏检查通过；46处历史绝对路径引用按交接约定排除。35个JSON示例与HEAD逐字相同且均可解析；01/02全文未改，16条B、22条C、12条A及15条H主矩阵逐行保持，既有Mermaid代码块保留。
+- 本机Obsidian附带Mermaid 11.13.0的临时VM解析器先通过03的8张时序图，解析flowchart时因缺少DOMPurify DOM环境失败（addHook/sanitize），没有当作图语法通过。改用临时独立、禁止网络请求的Playwright/Chrome页面后，00、03和整体README的全部12张图解析通过；新增00§4.6架构图实际渲染并查看，缩短重叠标签后复核。首次沙箱内Chrome启动SIGABRT；经自动审查允许的临时浏览器执行后完成，没有访问现有浏览器profile或项目服务。
+- 实际命令入口为`python3 /private/tmp/mem-you-runtime-static-check.py`及`node /private/tmp/mem-you-runtime-browser-qa.cjs docs/spec-v1/00-boundaries-and-invariants.md docs/spec-v1/03-agent-sequences-and-recovery.md docs/spec-v1/README.md`。临时脚本、Mermaid和架构PNG仅是本机静态验证材料，不是服务依赖或跨电脑交付物。
+- 收口时本仓9份受管理Markdown有修改，尚未提交/推送；外仓HEAD仍为上述ca24972f且工作区干净。MemoryService仍无源码/依赖/迁移/运行报告；未执行HTTP合同、数据库、真实Agent集成、模型/费用、性能或恢复验收。图文核查不代替这些验收。
+
+### 14.3 未完项与接续
+
+1. 后续若授权开发，D1先冻结工程/迁移、产品持久journal与主体/权限映射、Host通用来源/依赖接口及runner装配边界。MemoryService仍无源码、依赖清单、迁移或运行报告，不虚构启动命令。
+2. D2需要动态证据及实际使用校验；无模型picker需Host可信非模型输入接收/确定性执行接入，不能用普通turn或stream=false替代。原生item持久就绪前可靠排队，正式记录/记忆/分析分别恢复。
+3. D3完成历史/工具/assistant/压缩及交付重放副本的失效闭包、持续源控制和反向consumer清理及各自ACK；外仓现有静态memory、工具observer、SSE和dispatcher complete均不能代替这些能力。
+4. session创建unknown当前保留pending并停止自动重建；精确自动恢复仍需Runtime创建收据/只读核对的后续协议。B完整来源导出、子任务依赖按启用范围另验；真实质量、费用/P0及恢复报告仍待D4。
+
+本次不修改/启动外部运行时、不新增真实模型调用或生产配置，不提交或推送。下一轮先核对实际工作区，再按明确需求推进。
+
+## 15 2026-11-02 人工阅读与会议分享导航
+
+用户询问新手快速阅读入口及会议介绍应展示哪些文档。继承第14节的9份未提交修改，本轮只补阅读导航：在spec-v1/README新增§0，列出约20–30分钟阅读路线、15分钟会议选段、案例替换及背景/协作资料用途；根README与docs/README增加直达入口。不另建第二份方案或演示稿，不改业务/API合同、模型、指标、图或验收用例。
+
+导航经独立只读复核，建议阅读时间合计26分钟、会议合计15分钟，章节/案例及A/B/C边界准确。实际执行`python3 /private/tmp/mem-you-runtime-static-check.py`、`git diff --check`、`git diff --stat`及标题定位：24份Markdown中190个相对链接、43个标题锚点及围栏检查通过；35个JSON示例、01/02全文、B/C/A/H主矩阵和既有Mermaid与HEAD保持一致。此次没有新图，未重复运行浏览器渲染或任何服务/模型测试。
+
+累计10份受管理Markdown修改仍未提交/推送；服务实现与后续接入未完项保持第14节。后续人工阅读直接从spec-v1/README§0开始，开发仍以相关合同及D1–D4为准。
+
+## 16 2026-11-02 全部文档复核与Git交付
+
+用户随后明确授权检查第14–15节累计10份文档修改，无问题后提交并推送。第14–15节的“未提交/不推送”为当时快照，后继交付以本节和实际Git历史为准。本轮没有扩大到服务实现或外部项目修改。
+
+- 主审及三路独立只读复核覆盖全部diff：架构/Host流程、来源控制与验收映射、入口/阅读导航及交接状态，未发现阻止提交的问题。固定源码证据仍为agent-service的ca24972f；不将其后续未提交设计吸收进本次方案。
+- 重新执行`python3 /private/tmp/mem-you-runtime-static-check.py`及`git diff --check`：24份Markdown的190个相对链接、43个标题锚点、围栏通过；35个JSON示例与HEAD相同，01/02、16条B/22条C/12条A/15条H主矩阵及旧图保持。架构与时序图的解析/渲染证据见第14节，本轮未修改图。没有运行服务、真实模型或集成验收。
+- 实际执行`git fetch origin main`及`git rev-list --left-right --count HEAD...origin/main`，提交前本仓HEAD与origin/main均为b1b4d35、分叉计数0/0；随后按本次授权提交这10份Markdown并正常推送，不强推。包含本节的提交由Git历史定位，远端同步结果以实际命令核对，不在文件中硬编码自身commit。
+- 外仓本次复核时HEAD仍为ca24972f，但工作区已由其他工作产生5份已跟踪文档修改及新增`docs/design/11-source-context-invalidation.md`；不是第14节起点的干净状态。本轮未读取/吸收这些新设计，也未修改、提交或推送外仓。
+
+交付内容仍仅为设计与阅读指引；实现/真实验收未完项保持第14.3节。后续从spec-v1/README§0人工阅读，开发按现行合同和D1–D4继续。

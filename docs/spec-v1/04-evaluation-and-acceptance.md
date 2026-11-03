@@ -2,6 +2,8 @@
 
 版本：设计 V1.2 修订2，2026年10月28日整体审查修订。
 
+2026-11-02补§5.4及§9的agent-service宿主接入变体与阶段依赖，细化既有验收；不改变Memory API/schema、主矩阵ID、检索基线、数值门槛或A/B/C范围。
+
 本文规定实现后的验收方法与目标，不是已经测得的性能、准确率或产能。边界、不变量、数据及接口分别以[00](00-boundaries-and-invariants.md)、[01](01-data-model.md)、[02](02-api-contract.md)、[03](03-agent-sequences-and-recovery.md)为准。
 
 验收分三层：MemoryService 合同正确性、完整 MemoryAdapter 接入、包含主模型与产品工具的交互收益。前两层大部分可以使用受控假模型、假记录服务和固定向量完成；它们不证明真实中文理解或模型效果。第三层需要固定模型与授权数据集，并单独记录真实调用费用。
@@ -237,6 +239,21 @@ V1不为所有用户预生成日周月季摘要。只维护小型来源支持的
 | 正式饮水记录、背景回忆及更正 | records回执确定保存；Outbox同事件有序镜像；更正前建立fence，原话旧数值不再作当前事实，旧bundle禁用并清理 | W4/W5、A04/A09、C04/C05/C18/C19/C20及§5.2的Outbox变体 |
 | 精确累计、完整曲线或纯查询 | 产品metrics/list提供权威结果及自身读屏障；查询不生成生活事件，不从Memory top-k推算全量统计 | G08、A01/A05、§6.2工具与统计可信 |
 
+### 5.4 agent-service宿主接入的固定变体
+
+2026-11-02按[00§4.6](00-boundaries-and-invariants.md#46-以agent-service为宿主的具体映射)、[03§2.2](03-agent-sequences-and-recovery.md#22-当前-agent-service-的落点与新增工作)及[06§6.1](06-history-ingestion-and-repair.md#61-agent-service实际接口与控制链的映射)补宿主实际落点。下表细化既有验收，不新增Memory wire/schema、验收ID或A/B/C能力；全部待实现执行。Runtime通用门禁可先用确定性来源/FakeVendor验证，完整点滴接入仍需真实产品权限与持久journal。
+
+| 既有入口 / 阶段 | 固定场景 | 必须观察的结果 |
+|---|---|---|
+| A07、C14/C20（D2/D3宿主接入） | 固定memory prefix、普通middleware、外部SDK与新增Host接入分别核查；正文伪造依赖/权限标记 | 只有可信类型化路径建立依赖与动态证据区；不放宽现有messages改写限制、不从正文补证；owner/fleet/authority/epoch门禁仍有效，前几种包装不能单独登记full_lifecycle |
+| A01–A03（D2） | 已确认picker，Memory不可用；同时计数摘要模型和主模型请求 | 确定性接收/保存阶段经可信执行/原生输入接入，持久skip、正式提交一次、两类模型请求均为零；origin晚到按同计划补齐。不以stream=false或不读SSE证明无模型；回执后的独立个性化反馈按03另行prepare和核算 |
+| A02/A09、B15（D1夹具、D2集成） | 并发topic首建、session创建响应未知、turn响应未知、产品保存失败；工具started后结果未知 | pending创建不换session/扫描猜绑定；turn及业务action保持原身份，保存失败只重存。尚无创建核对合同则明确停止自动恢复，不宣称可精确查回；模型toolCallId不替代业务回执 |
+| A08/A10、C18/C20/C22（D3） | v1输入→工具/assistant→压缩→v2更正/撤权/erase→新执行；旧无依赖summary、Blob和并发变更 | 检查摘要及主模型实际输入：适用旧依赖在历史选择/水合/摘要前被阻断，递归派生不能重建污染；无法证明闭包则隔离/拒用并显示缺口；摘要usage/unknown独立结算 |
+| A08、C14/C15/C22（D3） | 首片后失效、排队delta、partialText、GET turn/items、SSE replay及重启恢复 | 停止未交付部分；所有可访问副本经有效性门禁、清理或拒绝。只在BFF缓冲不足以通过，已送达字节不伪称收回；正式回执可独立恢复 |
+| A12、H07/H13适用变体（D3） | history关闭且无source已物化；宿主tombstone已提交、现有dispatcher已complete；Memory暂时离线 | 独立控制仍可恢复投递，applied后才ACK；不依赖公共SSE存活。Memory反向changes清理有自己的consumer ACK，scope gate覆盖迟到未知item，业务镜像独立保留 |
+| H03/H04/H05/H07/H10（仅B启用时） | 同seq边界分页、超限turn、有效窗口已压缩、并发删除 | 按06提供可证明完整范围/游标和当前性，读取原content；afterSeq/最新N条/模型窗口不能冒充完整历史，缺口不标complete |
+| A07/A08、C20（仅启用subagent时） | 父记忆进入child prompt，child输出回到父工具结果后来源失效 | 父子实际输入/输出依赖均受授权、失效和清理约束；权限交集不冒充依赖传播。未启用时不把子任务列为A前置 |
+
 ## 6 效果指标与发布门槛
 
 ### 6.1 对照组
@@ -383,6 +400,8 @@ P1 是统一的开发压测档，不是实际业务规模预测或云部署采�
 | D3 失效与完整接入 | forget、changes、consumer握手、控制日志；默认HTTP | full adapter清理/原消息抑制/重建，受控与不可控范围分别声明 | C07、C12、C14–C22及A01–A05/A08–A12全部适用项、§5.2对应变体；不能未做D3便上线个人记忆 |
 | D4 真实质量与容量 | 后台声明抽取、评测manifest、P0压测与费用 | 固定reader/识别候选、真实产品工具对照 | 效果门槛、P0及恢复演练通过；完成首发 |
 | 扩展 | search/facts、MCP、自动摘要、精细片段投影、在线双代迁移、P1按需分别启用 | 对应外部宿主与领域适配 | 对应C/A/效果项增量回归；MCP测A06及互操作，动态Hook启用时测A07；不重跑无关选型 |
+
+采用agent-service时，D1同时冻结产品journal/身份映射及Runtime接入边界；D2接入动态证据、实际执行校验和确定性无模型分支；D3补全历史/压缩/交付副本失效及两向控制ACK。§5.4的宿主变体随相应阶段执行，不因Memory HTTP合同测试通过而省略。来源/投影门禁是该full接入的前置，不等待完整M3/M4/P2、重池或B/C历史扫描全部交付。
 
 服务级验收不能替代产品接入验收；真实产品上线必须同时通过适用的C、A和效果/容量门槛。可将多主体分享或某种模态从首发产品范围排除，但核心数据授权与协议仍须保持兼容，不能把未实现能力宣称为已验收。
 

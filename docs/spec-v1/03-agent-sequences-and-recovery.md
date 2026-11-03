@@ -6,6 +6,8 @@
 
 2026-10-30说明性补充：第4节增加场景导航、接口职责对照和贯穿写入、后续读取、更新的两组时序图。继续采用V1.2修订2合同，不新增API、能力或已实现/已验收声明。
 
+2026-11-02宿主接入细化：§2.2及§3.1按agent-service当前固定commit说明通用Host与记录应用的分工、摘要前失效、交付/重放、确定性输入及创建unknown缺口；对应验收见04§5.4。未改Memory API/schema或A/B/C范围。
+
 ## 1. 运行边界与不可破坏的约束
 
 产品发送一律进入通用记录型 Agent。`MemoryAdapter` 是 Agent 应用/运行时内的可信编排组件，调用独立 MemoryService；它不是模型 prompt 中“请先回忆”的约定，也不是前端直接访问个人记忆的客户端。适配器可以使用 REST/SDK，向模型暴露的补查、记忆写入能力可以包装成 MCP 工具。传输方式不改变权限、版本、幂等和删除语义。
@@ -58,13 +60,39 @@ context 默认预算为 1,200 tokens、8 个 evidence items、1,800ms deadline�
 
 ### 2.2 当前 agent-service 的落点与新增工作
 
-本机路径按项目`.local/context.md`映射：参考宿主为`agent-service/apps/agent-runner`，入口`src/main.ts`装配运行服务；会话、turn与模型/工具循环主要位于`packages/core`，包括`src/session/host.ts`的SessionHost。“通用记录型Agent”指承担记录理解、产品工具编排和MemoryAdapter接入的应用角色；agent-runner提供其运行宿主，不能据此认为点滴记忆接入已经交付。下列原机绝对链接保留审计来源，实际查阅时映射到本机根并核对commit与符号。
+2026-11-02重新核对本机`agent-service`，固定HEAD为`ca24972f6094bbf48658e60113d19112290e2544`、工作区干净。相对先前`5d38b2c`仅有9份文档增量，不能把新增设计当成新运行能力。以下路径相对其仓库根；跨电脑按`.local/context.md`映射，源码引用绑定上述commit，不将本机绝对路径或行号视为公共协议。外仓`docs/design/10-task-context-and-orchestration.md`§2–3.4已将创建核对、可信来源及压缩失效列为规划，与本方案共同需要落地。
 
-已静态核对参考仓库：`LifecycleHookService` 已定义 `beforePrompt`、`beforeModelStep`、`beforeTool` 及观察阶段，但配置类型中的 `memory-injection` 只有固定 `prefix/append`；中间件只是拼接静态文本。[类型与配置](/Users/zhangguoqiang/ai-workspace/claude-workspace/meetyou/agent-service/packages/core/src/hooks/lifecycle-types.ts:50)、[静态拼接实现](/Users/zhangguoqiang/ai-workspace/claude-workspace/meetyou/agent-service/packages/core/src/hooks/middleware.ts:225)。因此，远程动态记忆不能被描述为现成 hook 功能。
+| 实际落点 | 已有能力与证据位置 | 本接入仍需补齐 |
+|---|---|---|
+| `apps/agent-router` / `apps/agent-runner` | router提供公共HTTP/SSE及owner路由；runner的`src/main.ts`中`new SessionHost`（1033行）装配执行内核 | 记录应用和Memory接入在可信后端/runner装配，不放进router语义路由或新harness |
+| `packages/core/src/hooks/lifecycle-types.ts` 60–80行；`hooks/middleware.ts` 226–229行 | 有`beforePrompt/beforeModelStep/beforeTool`，`memory-injection`仅固定prefix/append，无交付/失效订阅接口 | 动态证据不进入固定system配置；需类型化注入、验证、清理及交付接入点 |
+| `packages/core/src/session/host.ts` 3186–3195、3254–3263行 | 两条模型准备分支均要求middleware返回的input与原messages相同 | 不放宽现有任意改写限制来绕接；在Host受控组装中新增明确证据区与依赖 |
+| 同文件2583–2621行；`context/history.ts` / `context/assemble.ts` | 读取历史后进行投影、必要水合及可能摘要，再组装模型输入；摘要内部也会水合工具结果，contextEpoch来自配置身份 | 来源门禁早于历史消费/相关Blob水合/摘要派发；配置epoch不代替来源版本或bundle有效性 |
+| `engine/types.ts` 120–139行；`session/host.ts` 3151–3176、3517行 | 引擎中立的每模型请求、工具前及工具结果回传边界 | 在这些关口接入实际依赖包校验、回执持久化与工具结果依赖登记 |
+| `session/host.ts` 3321–3342行；runner的`src/app.ts` 1894–1926行 | delta直接发布；items、turn及events另有读取/回放路径 | 输出队列、partialText、持久item及GET/SSE重放共同受当前授权、失效与清理约束 |
+| `examples/record-assistant/reference.ts` 122、135–181行 | 单进程operations Map、会话创建、turn幂等及结果saveIfCurrent参考 | 产品持久journal、创建unknown处理、真实工具/权限及Memory全生命周期均不是现成样例能力 |
 
-V1 需要在 Agent 应用编排器新增 `MemoryAdapter/MemoryProvider` seam；需要历史的路径在第一次模型请求前取得 bundle，通过有数据边界的动态输入注入；确定性无需历史路径持久 skip。模型前、工具前和输出前在线验证实际依赖的 bundle。若随后将它做成新的 lifecycle package，须继续经过现有 server-derived owner、`authorizeSubject`、fleet 准入、tenant/runtime epoch、超时、close/drain 等门禁。独立记忆权限不授予工具执行或子 Agent 委派权限，不能用一层插件绕开这些门禁。
+#### 2.2.1 记录应用与通用Host的两层接入
 
-参考示例在外部读取 business record 后启动 turn，且 operation 状态保存在进程内 `Map`。[参考编排](/Users/zhangguoqiang/ai-workspace/claude-workspace/meetyou/agent-service/examples/record-assistant/reference.ts:108)。生产接入应把本文件所列 journal/lease/回执放入持久存储；不能照搬该 Map 作为恢复保证。
+**记录应用的MemoryAdapter**负责产品主体/域与Memory grant映射、context的prepare/skip决策、原输入镜像、bundle身份、业务回执与读屏障、changes消费及consumer ACK。**通用Host接入点**负责可信来源/依赖承接、受控上下文装配、历史与派生投影的消费门禁、每step/工具/交付校验、在途取消及持久副本清理。后者保持引擎中立，不内置RecordService schema或Memory HTTP请求类型；由runner装配具体适配实现。逻辑名`MemoryProvider`等只是待实现接口，不是现有公共API。
+
+外部SDK可以维护产品映射并调用Memory，但不能清理Host内部历史、摘要、工具结果或发送队列。因此，外部编排与受控工具可先作集成夹具；在Host缺口交付前不得登记为点滴full_lifecycle。所有新接入继续经过server-derived owner、authorizeSubject、configured-fleet、fresh authority、tenant/runtime epoch、预算与close/drain；独立记忆权限不授予工具或子Agent权限。
+
+#### 2.2.2 来源消费、生成与交付的顺序
+
+1. 可信后端可靠接收输入，建立operation及topic→session映射，固定agent/version与source/group计划；Host接入须以已持久原生user item及可恢复的session/turn绑定为来源就绪依据。进程内预分配ID不算已接收；原生item尚未可靠提交时，镜像沿原计划排队，不提前发布不存在的原消息。
+2. 记录应用持久prepare/skip决策。Host在选择历史、加载相关Blob或发起摘要请求之前，先核当前授权和来源依赖/抑制；失效数据不能先发给摘要模型，再只过滤最终回复。
+3. 历史投影与受控动态证据区分别装配；canonical_injection仍按§3.1原样/hash使用。主模型每step、依赖历史的工具及交付前，在线校验实际使用的所有Memory bundle，并保留Host自身准入。
+4. 工具回执先持久，补查正文登记read-result依赖；业务更正/删除按§3.3建立fence。依赖覆盖原输入、工具结果、assistant派生文字及递归压缩摘要；不能只跟踪最新context包。
+5. 输出及重放均经过有效性门禁；失效时取消尚未交付内容、抑制相关投影并完成持久清理后ACK。只在产品前端缓冲SSE不足以保护Runtime的GET turn/items/events；缺并发取消能力时采用§2.1的缓冲交付方案，覆盖所有可访问副本。
+
+旧session的无依赖summary/结果不得通过解析正文补造可信来源。不能证明依赖闭包时，保守隔离受影响历史/派生段，从有效来源重建或明确拒用/缺口；仍经过同一Host准入，不自动换session规避。Memory-only erase也须防止原输入journal或旧摘要重建已禁内容。摘要模型调用可能早于主turn-start，来源门禁与usage/unknown处理必须同时覆盖它。这里只细化既有失效责任，未定义Runtime wire字段、迁移或已实现接口。
+
+#### 2.2.3 确定性输入与可选子任务
+
+§4.1的已确认picker是记录Agent应用的无模型分支；当前普通Runtime POST turn会准备provider并可能先摘要，`stream=false`不关闭模型执行。建议在Host准入内新增可信非模型输入接收/确定性执行接入点，复用原生item、串行/身份/authority和受控工具边界；具体协议在Runtime实施前冻结。本方案不虚构现成端点，也不通过创建会自动调用模型的turn来凑origin。正式提交不等待Memory，仍由可靠journal补齐原生身份与镜像；没有该接入能力时不能宣称A01的无模型路径已交付。
+
+若实际启用受管subagent，传入child的证据、child结果与父工具结果均继承适用依赖和失效处理；权限交集不等于依赖传播，现有child prompt也不自动复制父历史。A不要求启用subagent、长期workflow、重池或新增语义Router。
 
 ### 2.3 当前输入与历史证据分离
 
@@ -90,6 +118,12 @@ operation 属于产品/Agent 应用，不属于 MemoryService。最少持久字�
 | 动作 | 稳定 `action_id`、canonical payload hash、候选 item ID、目标 ID/expected version、调用是否发出、回执/查询引用、外部流 barrier、同 action 的 fence ID/状态/关闭依据 |
 | 模型与输出 | 模型 invocation ID、已发起/已确认/未知状态、usage 回执、部分/最终产品响应引用、SSE delivery cursor |
 | 收敛 | record outcome、analysis status、clarification refs、view invalidations、consumer 清理回执 |
+
+业务topic/operation与Runtime session/turn分层保存：同主题默认续用已绑定session，不把owner全部记录塞入一个会话；并发映射用CAS。现有turn幂等局限在其owner/session/key与保留期内，不代替产品动作身份或session创建幂等。当前`CreateSessionRequest`没有创建operation/key及按该身份精确查回的合同；创建响应未知时保留pending映射，停止盲目重建，metadata列表扫描不作为唯一分配证明。自动精确恢复需后续Runtime创建收据合同，本轮不新增API；成功结果保存失败只重存已核对结果，不重跑模型或产品动作。
+
+Runtime执行完成、产品记录committed、分析结果可保存是三件事。业务分析采用明确终态及持久结果验收（参考样例为`completed/end_turn`），`completed/max_steps`不能直接等同分析成功；结果还须按输入来源版本CAS判current/superseded。后续模型失败不撤销已提交业务回执。
+
+Host已有工具call/started标记和结果持久化，可复用为执行证据；它们不代替RecordService的稳定action key、权威回执查询及Outbox。模型toolCallId不作为跨轮业务动作身份，工具结果未知不能靠新turn或新toolCallId再次提交。
 
 prepare请求携带 `turn_ref={session_id,turn_id}` 和独立的 `preparation_revision`（默认1，由宿主持久分配）。输入/任务改变使用新的turn/steer identity；补查刷新、失效或过期以 `preparation_revision+1` 和新幂等key表示，不能假装用户发送了新生活记录。每个已登记 turn_ref + preparation revision identity仅对应一个prepare请求hash和逻辑bundle；第一次成功的 `bundle_hash/snapshot` 冻结后，同key的网络重试在幂等保留期内返回同一逻辑结果，仍须满足5分钟正文有效期和当前授权。幂等结果至少保留30天；到期后按稳定身份核对，不保证原正文可重放。不能借“重试”改变查询、主体、输入或预算；payload不同返回conflict。授权收缩、依赖撤回和删除优先于固定重放，旧快照内容不再返回。
 

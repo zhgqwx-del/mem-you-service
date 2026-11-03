@@ -6,6 +6,8 @@
 
 2026-10-30补充§2.1–2.3及§3.2的阅读说明，解释组件位置、Outbox、来源身份和镜像流程；仅重述V1.2修订2已有合同，不改变接口、发布范围或验收要求。端到端示例见[03第4节](03-agent-sequences-and-recovery.md)。
 
+2026-11-02按agent-service实际源码及最新设计细化§2.1、§4.6：区分记录应用MemoryAdapter与Host通用来源/消费门禁，明确双向控制链与待新增能力；同步03/04/06。沿用修订2的Memory API/schema、检索基线、SLO和A/B/C范围，未实现接入。
+
 独立记忆服务向获授权 Agent 提供记忆来源摄取、记忆整理、相关证据召回、记忆纠正与失效。它持有自己的记忆数据与来源镜像，不取得产品正式记录的写入权。产品把一次记录请求交给通用记录 Agent；Agent 内可信适配器调用记忆 API，模型按需使用记忆工具；产品业务记录及其统计由产品工具完成。
 
 本版收紧此前架构讨论中的边界：正式体重/饮水/账目总量、完整产品时间线、日历与图表不是记忆服务核心 API。记忆中的数值和外部记录引用用于提供证据，不能构成另一份正式台账。
@@ -49,6 +51,7 @@ BFF是Backend for Frontend，即面向前端体验的后端层。本项目用“
 | RecordService | 产品后端侧的正式条目、回执、统计及变更发布逻辑 | 否；可与现有产品后端同部署 |
 | Chat History Adapter | 产品/Agent宿主侧的授权来源接口；持有聊天格式和源库访问知识，提供有界取证及生命周期控制 | 否；可作为agent-service内受保护模块，MemoryService经注册接口访问 |
 | MemoryAdapter | 通用记录Agent的可信运行时/应用编排器内；管理context决策、历史注入、使用前验证及失效清理 | 属于Agent接入层，不属于MemoryService内部 |
+| Runtime通用来源与上下文门禁 | agent-service的Host侧；承接可信来源依赖，控制历史/摘要/模型/工具/交付及重放的消费与清理 | 通用运行时能力；需新增接入点，不把产品记录schema或Memory HTTP协议写入引擎 |
 | Memory摄取、补偿和派生worker | MemoryService侧；管理任务、来源版本、抽取、索引及发布门禁，通过注册History Adapter取证 | 可与API分进程或部署；逻辑上仍是记忆服务的工作项 |
 | MemoryService API与数据 | 独立记忆边界；保存获授权来源镜像及记忆，提供读取和生命周期合同 | 保持独立API、数据所有权及授权边界，不以共享产品表集成 |
 
@@ -233,6 +236,48 @@ flowchart TB
 派生压缩率与原来源保存完整性分开评价；“减少冗余记忆”的目标不能筛掉应可靠保存的用户来源、撤权或删除控制事件。后台归纳不能成为来源首次可读、显式约束生效或失效门禁的前置条件。
 
 已有修订和替代引用用于解释状态演变；“记错后更正”“偏好在某时刻改变”和“两次独立真实事件”按各自语义处理，不能因相似而共用一条覆盖链。关联/画像若后续扩展，仍由01的依赖及失效管理，不要求A先建设通用图、双向链或跨域因果引擎。对照实验见04§6.4；外部资料与适用边界见[Hy-Memory定向核对](../../research/targeted-gaps-notes.md#6-2026-10-28-hy-memory官方资料核对)和[上下文与RL研究](../../research/papers-frontier-notes.md#11-2026-10-28-上下文退化与学习策略补核)，研究分数不是本服务验收。
+
+### 4.6 以agent-service为宿主的具体映射
+
+2026-11-02按本机agent-service的`ca24972f6094bbf48658e60113d19112290e2544`静态核对。它相对先前审计commit的增量仅在文档；新增的业务任务/来源失效设计仍是规划。以下是本方案的接入目标，实线表示调用方向，虚线表示需要补齐的接入及控制关系，不表示集成已经交付。精确源码落点和流程见[03§2.2](03-agent-sequences-and-recovery.md#22-当前-agent-service-的落点与新增工作)。
+
+```mermaid
+flowchart TB
+    UI["产品前端"] --> APP["可信产品后端 / 记录Agent应用编排<br/>登录与业务权限、topic映射、operation journal"]
+    APP --> ROUTER["agent-router<br/>公共HTTP/SSE、owner路由、fleet门禁"]
+    subgraph RUNNER["agent-runner：可信运行宿主"]
+        HOST["SessionHost / 通用core<br/>准入、串行、authority、模型/工具循环"]
+        MA["待接入：记录应用MemoryAdapter<br/>主体映射、prepare/skip、bundle与业务回执"]
+        GATE["待补：通用来源依赖与消费门禁<br/>历史、摘要、step、交付/重放、清理"]
+        TOOLS["受控records / metrics工具"]
+        HA["待接入：受保护Chat History Adapter<br/>原生身份、授权取证、独立生命周期控制"]
+        HOST -. "应用接入" .-> MA
+        HOST -. "通用执行关口" .-> GATE
+        HOST --> TOOLS
+    end
+    ROUTER --> HOST
+    TOOLS --> REC["产品RecordService / 读模型<br/>正式条目、统计、业务Outbox"]
+    APP -->|"业务授权 / 回执与页面读取"| REC
+    MA -. "HTTP：镜像 / context / validate" .-> MEM["独立MemoryService API / worker<br/>来源、记忆、检索与生命周期"]
+    REC --> IMP["可信业务事件导入器"]
+    IMP --> MEM
+    MEM -. "注册接口：A控制 / B取证" .-> HA
+    MEM -. "记忆changes / reset" .-> MA
+    MA -. "抑制 / 取消 / 清理" .-> GATE
+    HOST --> CHAT[("Runtime MySQL / Blob<br/>原聊天与执行事实")]
+    HA --> CHAT
+    MEM --> MDB[("Memory专有数据与控制日志")]
+```
+
+图中的记录Agent应用是业务角色：产品后端持有业务授权、主题映射及执行journal，runner内可信接入组件完成需要Host控制的记忆编排；两者协作，不新建一个同名微服务。`agent-router`是运行时接入路由，不承担业务语义分派；`agent-runner`也不等于RecordService。确定性输入可由可信记录应用选择无模型分支，但仍需Host准入内的原生输入接收/执行接入，不能把普通POST turn当成现成无模型路径，见03。
+
+依赖分为三类，独立记录进度与回执：
+
+1. **业务链**：产品输入journal → Agent可信执行 → RecordService回执/Outbox → Memory镜像。正式统计读产品屏障；产品提交不等待Memory派生。
+2. **来源链**：宿主原生身份与源删除/撤权 → History Adapter的独立控制投递 → Memory失效applied → 源控制ACK。B启用后才增加反向的有界取证调用；Memory不直连聊天MySQL。
+3. **使用链**：Memory的context/补查及changes → MemoryAdapter → Host来源依赖、消费门禁与投影清理 → consumer ACK。它不能由来源链的ACK代替，也不生成新的用户turn。
+
+通用core依赖类型化的来源/依赖及执行门禁接口；记录应用把Memory协议、产品主体/领域、RecordService回执映射到这些接口，具体实现由runner装配。MemoryService不依赖Pi、SessionHost内部类型或产品表结构。HTTP调用可以双向发生，但数据所有权、协议与代码依赖不因回调合并。当前静态memory prefix/append、工具observer和外部SDK包装均不足以独立兑现full_lifecycle；Host保存、压缩和重放的副本也须纳入依赖闭包。
 
 ## 5 核心不变量
 
