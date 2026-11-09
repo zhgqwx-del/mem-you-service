@@ -8,6 +8,10 @@
 
 2026-11-02按agent-service固定commit`ca24972f6094bbf48658e60113d19112290e2544`核对宿主接入：补[00§4.6具体架构与三类链路](00-boundaries-and-invariants.md#46-以agent-service为宿主的具体映射)、[03§2.2实际落点与流程](03-agent-sequences-and-recovery.md#22-当前-agent-service-的落点与新增工作)、[06§6.1来源与控制映射](06-history-ingestion-and-repair.md#61-agent-service实际接口与控制链的映射)及[04§5.4验收变体](04-evaluation-and-acceptance.md#54-agent-service宿主接入的固定变体)。评估结论与取舍见07§7；Memory协议、检索/SLO和A/B/C不变，外仓源码未修改。
 
+2026-11-08结合[Anthropic记忆研究评估](../../research/anthropic-agent-memory-review.md)，补[04§6.4.1写入策略可选对照](04-evaluation-and-acceptance.md#641-写入策略的可选对照)、[§7.3.1维护成本与摊销](04-evaluation-and-acceptance.md#731-可选派生的维护成本与摊销)，并在[06§7.3](06-history-ingestion-and-repair.md#73-定向派生复核c扩展)明确定向派生复核属于C，验收复用04§10既有变体。继续采用修订2；API、数据模型、首发A和数值门槛不变，未启用扩展不成为首发前置。
+
+2026-11-09补[00§4.1.1–4.1.2各层构建与维护](00-boundaries-and-invariants.md#411-各层的构建与维护机制)及[§4.5.1–4.5.2的LLM职责与Anthropic分层对照](00-boundaries-and-invariants.md#451-llm与prompt的职责)，解释来源准入、候选抽取、索引、动态组包及dreaming的分工。属于既有合同的阅读补充，API、数据模型、A/B/C和数值门槛不变，没有新增运行实现或prompt模板。
+
 **整体方案从本文开始，架构与服务边界以[00](00-boundaries-and-invariants.md)展开；核心开发以01–04为准，持久聊天补采同时执行[06](06-history-ingestion-and-repair.md)。** A的原生聊天身份/生命周期条款已在01–03定义，06的相关共享细则同样适用；启用扫描与任务控制才增加B/C扩展要求。不需要再从旧《独立记忆服务技术与产品方案》拼接接口。本目录是同一份规格的分册，05、07是审查说明，研究笔记和旧方案只保留为依据。
 
 本服务为通用记录型Agent及其他获授权Agent提供记忆写入、相关证据召回、更正与遗忘。点滴产品的每次发送进入Agent，由Agent内可信MemoryAdapter决定是否使用历史，再通过HTTP API调用独立服务；模型可按需使用受控记忆工具。MCP、Hook、插件和SDK是接入方式，生命周期保证取决于宿主实际能力。
@@ -25,7 +29,7 @@
 | 1 / 3分钟 | 本文开头及[第2节架构概览](#2-整体架构与调用关系) | 为什么需要记忆服务？它如何帮助Agent处理新记录？ |
 | 2 / 5分钟 | [00§2系统职责](00-boundaries-and-invariants.md#2-系统职责)，重点§2.1与§2.3 | RecordService、两个Adapter和MemoryService分别做什么？来源、记忆与正式记录有什么区别？ |
 | 3 / 8分钟 | [03§4.7偏好案例](03-agent-sequences-and-recovery.md#47-通用偏好写入简短偏好后续召回改为详细)或[§4.8饮水案例](03-agent-sequences-and-recovery.md#48-正式记录跑步后饮水500ml回忆背景更正为300ml)，先选一例 | 一次写入如何在以后被召回，又如何更正？偏好案例较简单；饮水案例串起正式记录与记忆 |
-| 4 / 6分钟 | [00§4.1内部逻辑分层](00-boundaries-and-invariants.md#41-memoryservice内部逻辑分层)及[§4.6实际宿主映射](00-boundaries-and-invariants.md#46-以agent-service为宿主的具体映射) | Memory内部怎样处理来源和召回？产品后端、agent-service与MemoryService如何连接？ |
+| 4 / 6分钟 | [00§4.1内部逻辑分层](00-boundaries-and-invariants.md#41-memoryservice内部逻辑分层)及[§4.6实际宿主映射](00-boundaries-and-invariants.md#46-以agent-service为宿主的具体映射) | 各层怎样构建、更新和维护？产品后端、agent-service与MemoryService如何连接？ |
 | 5 / 4分钟 | [本文第3节首发与后置能力](#3-首发切片与后置能力)及[04§9交付顺序](04-evaluation-and-acceptance.md#9-交付顺序与责任) | 首发做什么、哪些后置？从什么阶段开始开发？ |
 
 第一遍能说清“产品管正式记录，Agent管执行，Memory管有来源的记忆”，并复述一个写入→读取→更正案例，就可以再按第1节的角色表深入。01适合查数据对象，02适合开发时查精确接口；接入研发重点看03§2.2，验收研发看04。06的原生身份/生命周期细则适用于A，扫描与任务控制部分在启用B/C时再细读。
