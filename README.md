@@ -31,6 +31,7 @@
 | [agent-service聊天存储核查](research/chat-storage-audit.md) | 固定源码下MySQL、原消息、分页、终态、压缩及生命周期的可用能力与缺口 |
 | [Hermes/OpenClaw后台记忆专项](research/offline-memory-mechanisms.md) | background review、Dreaming、session-backfill的实际输入、触发和边界 |
 | [Anthropic Agent Memory设计评估](research/anthropic-agent-memory-review.md) | 2026-11-08核对原文与固定示例；写入策略/维护成本已细化到04，定向复核在06明确为C，API与首发范围不变 |
+| [Agent Memory七模块文章评估](research/agent-memory-seven-modules-review.md) | 2026-11-10核对本机HTML与LangChain官方资料；分类/职责、固定验收变体和反馈诊断已补入00/04，API、数据模型和首发范围不变 |
 
 实现结论来自官方文档和固定版本源码的静态审阅，性能与中文效果仍需原型验证。七个 Agent 中，五个采用本地 2026 年 9 月快照并与当前官方文档交叉核对；Harness²、OpenHarness 及记忆框架临时下载核对。每份研究列出 commit 或版本。未运行厂商 benchmark，也未改变现有 agent-service 或启动真实模型调用。
 

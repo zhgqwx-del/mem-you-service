@@ -1,10 +1,12 @@
 # 文档状态与开发依据
 
-更新日期：2026年11月9日。当前设计版本：V1.2 修订2，目录沿用`spec-v1`；2026-10-28已补充分层和研究诊断，并修正约束完整性、授权/有序消费及验收边界。2026-10-30增加概念、端到端时序及既有验收映射；2026-11-02按agent-service实际源码细化逻辑架构、Host/应用接入、来源及使用控制链、确定性路径与验收变体。沿用Memory API/schema、检索模型/RRF参数、数值SLO及A/B/C范围，仍无服务实现或真实集成验收。
+更新日期：2026年11月10日。当前设计版本：V1.2 修订2，目录沿用`spec-v1`；2026-10-28已补充分层和研究诊断，并修正约束完整性、授权/有序消费及验收边界。2026-10-30增加概念、端到端时序及既有验收映射；2026-11-02按agent-service实际源码细化逻辑架构、Host/应用接入、来源及使用控制链、确定性路径与验收变体。沿用Memory API/schema、检索模型/RRF参数、数值SLO及A/B/C范围，仍无服务实现或真实集成验收。
 
 2026-11-08新增[Anthropic Agent Memory设计评估](../research/anthropic-agent-memory-review.md)，随后按授权将写入策略可选对照、后台维护成本及摊销口径补入04，在06中明确定向派生复核属于C并同步既有验收变体。继续采用修订2，API、数据模型、首发A及现有数值门槛不变；未启用扩展不成为首发前置。
 
 2026-11-09在[00§4.1.1](spec-v1/00-boundaries-and-invariants.md#411-各层的构建与维护机制)补各层筛选、构建、更新与维护机制及偏好示例，在[§4.5.1](spec-v1/00-boundaries-and-invariants.md#451-llm与prompt的职责)补LLM/prompt、dreaming职责和Anthropic分层对照。仅解释已有合同，不新增接口、数据对象、首发范围或已交付模板。
+
+2026-11-10新增[Agent Memory七模块文章评估](../research/agent-memory-seven-modules-review.md)，对照用户提供的本机HTML及LangChain官方资料；随后按用户授权补[00§4.1.3分类/职责说明](spec-v1/00-boundaries-and-invariants.md#413-agent信息来源与记忆分类维度)、[§4.5.3反馈诊断](spec-v1/00-boundaries-and-invariants.md#453-反馈诊断与受控修订)，以及[04§5.5既有验收变体](spec-v1/04-evaluation-and-acceptance.md#55-记忆触发偏好与事件身份的固定变体)和[§6.3.1归因与修复报告](spec-v1/04-evaluation-and-acceptance.md#631-反馈诊断与修复报告)。API、数据模型、首发范围及数值门槛不变，尚未实现夹具或服务。
 
 **整体方案从[V1整体方案与开发入口](spec-v1/README.md)开始；核心使用00–04，持久聊天接入另执行06，不使用下面两份历史方案的接口草案。**
 
