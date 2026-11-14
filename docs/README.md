@@ -10,6 +10,10 @@
 
 2026-11-13新增独立[Mem0专项调研](../research/mem0-focused-research.md)，按固定源码区分OSS、Platform、自托管REST和官方/社区Agent集成，给出部署、SDK/API、Pi、OpenCode V1/V2及DeepSeek Harness接入路径，并核对授权和删除边界。仅新增研究依据，现行合同、首发范围及实现状态不变。
 
+操作步骤另见[Mem0自托管部署Handbook](handbooks/mem0-self-hosted-deployment.md)和[agent-service接入Handbook](handbooks/mem0-agent-service-integration.md)：附独立部署模板与手动HTTP检查脚本，按agent-service实际`6870e7346d98ef193de51e8f328e1f967066da2a`核对现有接点。它们是实验/接入指南，不是现行Memory API合同或已完成部署、集成的证明。
+
+[Mem0与本项目设计对比](../research/mem0-design-comparison.md)进一步区分已覆盖能力、可优先落实的工程材料与需要效果证据的扩展；当前建议不改API、数据模型、A/B/C和验收门槛。
+
 **整体方案从[V1整体方案与开发入口](spec-v1/README.md)开始；核心使用00–04，持久聊天接入另执行06，不使用下面两份历史方案的接口草案。**
 
 第一次人工阅读或准备会议介绍，直接看[新手阅读与会议分享](spec-v1/README.md#0-新手阅读与会议分享)：包含建议顺序、具体章节、案例与讲解时间，不需要先通读全部分册。

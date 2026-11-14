@@ -6,6 +6,10 @@
 
 本文独立介绍 Mem0，并在第11节讨论与本项目的关系。它是带版本的研究依据，不修改 [V1.2 修订2现行合同](../docs/spec-v1/README.md)，也不表示已部署或完成真实 Agent 集成。部署和调用代码是供后续实验使用的示例；本轮只做官方资料与固定源码的静态核查。
 
+需要照步骤操作时，使用[自托管部署Handbook](../docs/handbooks/mem0-self-hosted-deployment.md)及[agent-service接入Handbook](../docs/handbooks/mem0-agent-service-integration.md)。后者按宿主更新后的固定commit重新核对，区分无需改Runtime的合成POC与待开发的自动记忆能力。
+
+对当前方案还能借鉴什么，另见[设计对比与完善建议](mem0-design-comparison.md)；其中工程建议和候选扩展未自动写入现行合同。
+
 按需阅读：[版本与能力](#2-版本与产品边界)、[工作机制](#3-工作机制与能力限制)、[部署](#4-部署方式与资源要求)、[API使用](#5-api-与日常使用)、[自研Agent](#7-接入自研-agent)、[Pi](#8-pi-agent-集成)、[OpenCode](#9-opencode-集成)、[DeepSeek Harness](#10-deepseek-harness-集成)、[本项目取舍](#11-与本项目的关系)。
 
 ## 1 结论与选择路径

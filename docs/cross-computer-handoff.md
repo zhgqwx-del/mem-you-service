@@ -1,6 +1,6 @@
 # 跨电脑开发交接说明
 
-最近核对日期：2026-11-13（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，本次复核与Git交付见第25节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期：2026-11-13（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
 
 ## 1 当前到底交付了什么
 
@@ -559,3 +559,25 @@ git diff --check
 - 已执行 `git -c http.proxy= -c https.proxy= fetch origin main` 及 `git rev-list --left-right --count HEAD...origin/main`，提交前分叉计数为0/0。交付范围限定根README、docs索引、本文及 [Mem0专项调研](../research/mem0-focused-research.md)；按本次授权提交并正常推送main，不强推。包含本节的提交与最终远端同步结果以Git历史及实际命令核对，不在文件内预写自身commit。
 
 第24节未fetch/未提交及41个源码路径、4段shell是研究阶段快照，本节记录后继复核和Git交付。此次仍仅交付研究文档；未安装SDK/插件、启动服务、调用真实模型或修改外部agent-service，真实部署、中文效果、费用、插件兼容和生命周期验收仍待后续执行。
+
+## 26 2026-11-13 Mem0自托管与agent-service接入Handbook
+
+用户要求形成两份操作手册，分别说明Mem0开源自部署和现有自研agent-service接入方法。起点为干净 `main / 9d91d7612286e48ed9268311a7a786bfb12358fb`。外仓只读核对为干净 `main / 6870e7346d98ef193de51e8f328e1f967066da2a`，本轮结束时仍相同；没有读取其真实配置、原私有验收或修改外仓。未fetch/pull本仓或重启任何既有环境。
+
+- 新增 [自托管部署Handbook](handbooks/mem0-self-hosted-deployment.md) 和 [agent-service接入Handbook](handbooks/mem0-agent-service-integration.md)，同步根README、docs索引及研究入口。部署附5份样例：固定源码Dockerfile、独立Compose、无密钥.env.example、dockerignore及手动HTTP检查脚本；它们需复制到独立Mem0 checkout使用，不是本项目MemoryService实现。
+- 默认部署主线为固定Mem0源码、PostgreSQL/SQLite与dashboard自托管、OpenAI抽取/embedding；不需要Platform账号，但模型费用单列。模板移除启动时动态pip和reload，仅发布loopback端口，区分后台API key与业务owner。手册补充私有目录Git忽略、向导模型调用副作用、配置优先级、完整持久化范围、拒绝覆盖的停写备份及恢复门禁。
+- 当前agent-service使用Pi agent-core，Host没有动态memory接口，现成memory-injection仅静态字符串。接入手册区分App后端合成POC、待开发Runtime适配和工具路线；说明冻结完整input/检索快照、unknown核对和防写回回声。外仓设计11仍待开发，且首包排除动态业务memory，不能据此宣称Mem0自动接入已具备。
+- 主审与三路只读复核已收口数据库密码来源一致、备份覆盖/失败、日志脚本PYTHONPATH、向导副作用及receipt原子更新和owner检查。实际运行 `PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem0-handbooks-check.py`、`PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem0-handbooks-smoke-offline-check.py`、检查脚本的 `--help`、`git diff --check` 及两仓状态/HEAD核对。文档相对链接/标题锚点、围栏与JSON解析通过；新手册12段shell、4段JavaScript、2段嵌入Python、1份YAML、1份Python脚本及20处固定源码路径静态检查通过，Compose关键约束符合预期。手动检查脚本的3个离线fake transport场景通过：成功CRUD、add未知不重试、错误owner阻止后续修改。临时检查器和fake响应不作为真实服务/模型验收。
+
+当前shell未找到Docker CLI，因此未执行镜像构建、`docker compose config`、容器启动或实际部署。未安装SDK/插件、调用模型、配置真实密钥、实现或联调Mem0适配，也未修改/启动外部agent-service。`docs/spec-v1/`全文保持，现行API、A/B/C及数值门槛不变；本服务仍未实现。此次新增/修改共11份文件留在本地，未提交或推送。后续若要执行部署或接入，实现与具名预算、环境及验收范围需按实际任务确定。
+
+## 27 2026-11-13 Handbook整体复核 设计对比与Git交付
+
+用户明确授权整体检查两份Handbook、部署模板和相关文档后提交推送，并要求进一步分析当前设计相对Mem0可借鉴的内容。起点仍为 `main / 9d91d7612286e48ed9268311a7a786bfb12358fb`，继承第26节的11份本地文件变更；外部agent-service仍为干净6870e734，不修改其源码或运行环境。
+
+- 两份手册及5份样例重新经主审和独立只读复核。修正dashboard容器缺DASHBOARD_URL导致本机HTTP refresh cookie策略不明确的问题，API/dashboard使用相同值；补SQLite宿主目录权限。手动检查脚本增加search/history畸形结果结构校验，统一受控失败并保留receipt，避免未捕获异常。
+- 新增 [Mem0设计对比](../research/mem0-design-comparison.md)，同步根README、docs索引和专项研究入口。结论区分已覆盖合同与真实实施缺口，建议优先落实自己的部署/SDK、writer模板与有界上下文、最小provider接口、可读诊断及公平Mem0对照；细粒度slot、图、reranker和自动巩固按需求/效果证据另评审。D1/D2交付界限、writer策略修订与embedding表示代际、独立控制日志及人工保护保持，不改spec-v1。
+- 实际重跑 `PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem0-handbooks-check.py`、`PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem0-handbooks-smoke-offline-check.py`、`git diff --check` 及合同未改检查。30份Markdown的相对链接/锚点、围栏和40个JSON解析通过；手册13段shell、4段JavaScript、2段嵌入Python、YAML及Python样例、24处手册/新报告固定源码路径检查通过，原专项研究46处固定源码路径保持可核。7个离线fake transport场景通过：只读无写入、成功CRUD、add未知不重试、错误owner阻止修改、搜索null/坏row及history坏row受控失败。没有把fake场景或静态检查当成真实部署/模型验收。
+- 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，`git rev-list --left-right --count HEAD...origin/main` 为0/0。交付范围是两份Handbook、5份样例、新对比报告、根README、docs索引、原专项研究和本文共12份文件；暂存后核对文件集合和 `git diff --cached --check`，按用户授权提交并正常推送main，不强推。包含本节的提交及远端同步结果由实际Git命令核对，不预写自身commit。
+
+第26节未fetch/未提交及3个离线场景是整理阶段快照，本节记录后继复核和Git交付。本次仍未构建或启动Docker、安装SDK/插件、读取真实密钥、调用模型、实现/联调Mem0接入或改动外部agent-service；本服务仍未实现。现行API、数据模型、A/B/C、模型/排序基线、数值门槛和验收矩阵均保持，建议尚未采纳为新的合同义务。

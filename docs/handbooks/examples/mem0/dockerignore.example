@@ -1,0 +1,11 @@
+.git
+**/.env
+**/.env.*
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.pyc
+**/*.key
+deploy.handbook/private
+deploy.handbook/state
+deploy.handbook/backups

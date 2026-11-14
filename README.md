@@ -25,6 +25,9 @@
 | [七个 Agent 和 Harness 的实现研究](research/agent-systems-notes.md) | OpenCode、OpenClaw、Hermes、DeepSeek Harness、Codex、Harness²、OpenHarness 的读写触发、存储检索及源码入口 |
 | [开源记忆框架研究](research/memory-frameworks-notes.md) | MemGPT 与当前 Letta、Mem0、LangGraph/LangMem、Graphiti/Zep、Hindsight 的架构、边界和选型 |
 | [Mem0专项调研](research/mem0-focused-research.md) | 2026-11-13固定源码核对OSS/Platform、部署与API、自研Agent、Pi、OpenCode V1/V2及DeepSeek Harness接入，含鉴权和擦除边界 |
+| [Mem0自托管部署Handbook](docs/handbooks/mem0-self-hosted-deployment.md) | 固定源码镜像、独立Compose模板、私有配置、初始化、检查及备份步骤 |
+| [agent-service接入Mem0 Handbook](docs/handbooks/mem0-agent-service-integration.md) | 依据当前宿主源码给出App后端POC、Runtime实施及工具路线，明确现成能力和待开发范围 |
+| [Mem0与本项目设计对比](research/mem0-design-comparison.md) | 区分既有合同覆盖与实施缺口，给出部署/SDK、writer、组件配置、诊断和选型实验的优先建议；未改现行合同 |
 | [论文与前沿研究](research/papers-frontier-notes.md) | MemT 1.0、分层记忆、策略学习、主动记忆及评测；§11补核Context Rot、前史敏感性与GRPO/Agentic RL |
 | [Demo 源码核对](research/demo-product-audit.md) | 输入、卡片、回顾、多主体、最新交互规则和演示数据边界 |
 | [定向补充研究](research/targeted-gaps-notes.md) | MemOS 接入与纠错、Mastra、EverOS；§6补核Hy-Memory双过程、writer、SDK、CMB及与本合同的差距 |

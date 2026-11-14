@@ -1,0 +1,74 @@
+name: ${MEM0_COMPOSE_PROJECT:-mem0-handbook}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the private .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../server/init-db.sh:/docker-entrypoint-initdb.d/10-mem0-app.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mem0:
+    image: mem0-handbook-api:f1791daa
+    build:
+      context: ..
+      dockerfile: deploy.handbook/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      APP_DB_NAME: mem0_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the private .env}
+      AUTH_DISABLED: "false"
+      HISTORY_DB_PATH: /app/history/history.db
+      MEM0_TELEMETRY: "false"
+      DASHBOARD_URL: http://127.0.0.1:${MEM0_DASHBOARD_PORT:-13000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${MEM0_API_PORT:-18888}:8000"
+    volumes:
+      - ./state/history:/app/history
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/auth/setup-status', timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  dashboard:
+    build:
+      context: ../server/dashboard
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:${MEM0_API_PORT:-18888}
+      API_INTERNAL_URL: http://mem0:8000
+      DASHBOARD_URL: http://127.0.0.1:${MEM0_DASHBOARD_PORT:-13000}
+      NEXT_PUBLIC_INSTANCE_NAME: Mem0 Handbook Lab
+      NEXT_TELEMETRY_DISABLED: "1"
+    depends_on:
+      mem0:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${MEM0_DASHBOARD_PORT:-13000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres_data:
