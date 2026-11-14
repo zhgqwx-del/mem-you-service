@@ -1,6 +1,6 @@
 # 跨电脑开发交接说明
 
-最近核对日期：2026-11-10（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，本次Git交付见第23节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期：2026-11-13（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，本次复核与Git交付见第25节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
 
 ## 1 当前到底交付了什么
 
@@ -537,3 +537,25 @@ git diff --check
 - 本节随上述7份文档按用户授权提交并正常推送`main`，不强推。包含本节的提交与远端同步结果以Git历史及实际命令核对，不在文件内预写包含自身的commit。
 
 第21–22节“未提交/推送”均为当时快照，本节为后继Git交付记录。夹具、诊断报告、服务实现及真实验收仍待按D1–D4交付；本次未调用真实模型、付费/生产服务或修改外部agent-service。
+
+## 24 2026-11-13 Mem0功能部署与Agent集成专项研究
+
+用户要求专门研究Mem0的功能、部署、使用及接入自研Agent、Pi、OpenCode和DeepSeek Harness，形成独立文档。起点为干净 `main / 30797bcb86bbf558bdd30f646caf4d214ebf20fa`；未fetch/pull本仓，不据本地origin引用判断远端状态。
+
+- 新增 [Mem0专项调研](../research/mem0-focused-research.md)，同步根README和docs索引。官方在线资料结合固定公开源码，区分OSS、Platform、REST、远程MCP、官方插件与社区插件；包含部署/API示例、自研适配、宿主兼容性、中文PoC及本项目取舍。
+- Mem0固定commit为 `f1791daa86d469249c9b002f62644d58a1eb96a0`，Python 2.2.1、Node 3.3.1、Pi插件0.3.2、OpenCode插件0.4.1；官方DSH固定为 `39163dd30f703a79079e2d2446545cff3c453738`、CLI 0.2.2-rc.3；社区 `light-cheng/DSH-Mem0` 固定为 `21afebc0f7fbecf788a2c7aad3423c0128622e47`、0.3.1。源码只读下载至 `/private/tmp`，不作为跨电脑持久依赖；可追溯URL保存在报告中。
+- 关键结论：当前默认add为ADD-only；OSS没有当前Platform的同等Graph/Dream/时间推理；官方Pi/OpenCode插件默认直连Platform，OpenCode固定插件仍为V1接口，V2应走MCP或迁移。新版自托管有dashboard和鉴权，但API key不自动约束业务user scope；删除还需处理history/messages及宿主副本。开发Compose会动态重装无版本引擎，固定Git仍不足以固定运行环境。
+- 主审及三路只读交叉复核后，补明JWT_SECRET在鉴权开启时必填、Pi自动采集的项目scope及DSH使用DeepSeek模型和接记忆的区别。报告对配置组合、静态判断和已交付插件分别标注，不声称已联调。
+- 实际执行 `git status --short --branch`、`git rev-parse HEAD`、公开源码clone及版本核对、`git diff --check`、`git diff --quiet HEAD -- docs/spec-v1` 和 `python3 /private/tmp/mem0-focused-doc-check.py`。27份Markdown的283个相对文件/页内链接、116个标题锚点、围栏及38个JSON解析通过；报告3段Python经AST解析、1段JavaScript经Node语法检查、4段shell经zsh语法检查、1段YAML经Ruby标准库解析，41个固定源码路径均存在。46处历史绝对链接按既有约定排除。检查器是本机临时文档验证材料，不是服务测试或交付依赖。
+
+本轮仅4份文档新增/修改，留在本地，未提交或推送；`docs/spec-v1/`全文保持。未安装SDK或插件、启动服务/数据库、注册托管账号、读取真实密钥、调用模型或改动外部agent-service。仍无本服务源码、依赖清单、迁移或运行验收；真实部署、中文效果、费用、插件兼容和生命周期验收待后续明确范围后执行。本次不自动引入Mem0依赖、更换架构或启用历史扫描。
+
+## 25 2026-11-13 Mem0整体复核与Git交付
+
+用户明确授权整体检查本次Mem0调研及相关文档，修正问题后提交并推送GitHub。起点仍为 `main / 30797bcb86bbf558bdd30f646caf4d214ebf20fa`，工作区仅有第24节的4份文档新增/修改；继承研究内容，不覆盖其他工作。
+
+- 主审及三路只读复核覆盖整份报告、部署/API、Pi/OpenCode/DSH、导航和交接。发现并补齐遗漏的Mem0官方 `@mem0/deepseek-plugin`：固定manifest为0.3.2、developer preview，开发依赖对应DSH 0.1.1-rc.2，连接Platform。报告导言、总表、版本和§10.2同步增加；社区插件及自研路径顺延。当前DSH 0.2的首请求输入可见时序风险按源码明确，未误称实机验证或所有hook失效。
+- 增量再经独立复核，未发现提交阻断项。重跑 `python3 /private/tmp/mem0-focused-doc-check.py` 及 `git diff --check`，文档链接/锚点、围栏和38个JSON解析通过；报告3段Python、1段JavaScript、5段shell、1段YAML语法通过，46个固定源码路径存在。现行 `docs/spec-v1/` 全文与起点一致；既有合同、JSON/Mermaid及验收矩阵不变。临时检查器和外部源码不纳入Git。
+- 已执行 `git -c http.proxy= -c https.proxy= fetch origin main` 及 `git rev-list --left-right --count HEAD...origin/main`，提交前分叉计数为0/0。交付范围限定根README、docs索引、本文及 [Mem0专项调研](../research/mem0-focused-research.md)；按本次授权提交并正常推送main，不强推。包含本节的提交与最终远端同步结果以Git历史及实际命令核对，不在文件内预写自身commit。
+
+第24节未fetch/未提交及41个源码路径、4段shell是研究阶段快照，本节记录后继复核和Git交付。此次仍仅交付研究文档；未安装SDK/插件、启动服务、调用真实模型或修改外部agent-service，真实部署、中文效果、费用、插件兼容和生命周期验收仍待后续执行。
