@@ -2,6 +2,8 @@
 
 核查日期：2026-11-13（America/Los_Angeles）。比较对象为本仓库V1.2修订2现行设计，以及Mem0固定源码 `f1791daa86d469249c9b002f62644d58a1eb96a0`；涉及Platform时单独标注。机制与部署细节见 [Mem0专项调研](mem0-focused-research.md)，操作步骤见 [部署Handbook](../docs/handbooks/mem0-self-hosted-deployment.md) 和 [接入Handbook](../docs/handbooks/mem0-agent-service-integration.md)。
 
+生产部署细化见[生产环境Handbook](../docs/handbooks/mem0-production-deployment.md)：远程向量／应用库可配置，但SQLite history/messages和进程内配置仍需改造才能支持共享状态的多实例；该手册及样例不是本项目MemoryService部署包，也不是已验证的Mem0 HA方案。
+
 **值得进一步借鉴，优先方向是可执行的工程入口和writer实现。** 当前设计已覆盖来源、版本、权限、混合检索、预算、微批、异步派生及生命周期，缺少的是运行实现、实际prompt、初始化/SDK样例和验证报告。Mem0已有可用SDK、REST服务和集成代码，这一点比继续增加设计对象更有直接参考价值。
 
 本报告只提出分析和候选工作，不修改现行API、数据模型、发布范围、检索参数或验收门槛，也不将候选建议自动升级为首发义务。

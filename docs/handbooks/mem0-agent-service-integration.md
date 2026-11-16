@@ -6,6 +6,8 @@
 
 本手册核对的本机源码为 `/Users/zhangguoqiang/ai-workspace/codex-workspace/agent-service`，干净 `main / 6870e7346d98ef193de51e8f328e1f967066da2a`。Mem0基线为 `f1791daa86d469249c9b002f62644d58a1eb96a0`。本次只交付指南和示例，未修改或启动agent-service。先完成 [Mem0部署Handbook](mem0-self-hosted-deployment.md) 的认证、持久化和合成CRUD检查。
 
+生产接入使用[生产环境部署Handbook](mem0-production-deployment.md)中的受控HTTPS入口。多个agent-service调用一个Mem0，与多个Mem0副本共同写入不同；后者需先完成共享history、配置一致性及写入协调。网关不可自动重试未知写入，业务key也不应直达客户端。
+
 ## 1 先选接入层级
 
 | 路线 | 怎样接 | 当前是否需要改agent-service源码 | 可以验证什么 |

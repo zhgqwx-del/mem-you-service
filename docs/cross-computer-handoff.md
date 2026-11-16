@@ -1,6 +1,6 @@
 # 跨电脑开发交接说明
 
-最近核对日期：2026-11-13（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期：2026-11-15（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
 
 ## 1 当前到底交付了什么
 
@@ -581,3 +581,28 @@ git diff --check
 - 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，`git rev-list --left-right --count HEAD...origin/main` 为0/0。交付范围是两份Handbook、5份样例、新对比报告、根README、docs索引、原专项研究和本文共12份文件；暂存后核对文件集合和 `git diff --cached --check`，按用户授权提交并正常推送main，不强推。包含本节的提交及远端同步结果由实际Git命令核对，不预写自身commit。
 
 第26节未fetch/未提交及3个离线场景是整理阶段快照，本节记录后继复核和Git交付。本次仍未构建或启动Docker、安装SDK/插件、读取真实密钥、调用模型、实现/联调Mem0接入或改动外部agent-service；本服务仍未实现。现行API、数据模型、A/B/C、模型/排序基线、数值门槛和验收矩阵均保持，建议尚未采纳为新的合同义务。
+
+
+## 29 2026-11-15 Mem0生产部署与多实例改造Handbook
+
+用户要求形成远程数据库等中间件的生产部署手册，并单独说明Mem0多实例改造、步骤和限制，同步相关文档。起点为干净 `main / 83c588a95d9deb0b9b7899ab91d0d7af027b0f8f`。沿用Mem0固定 `f1791daa86d469249c9b002f62644d58a1eb96a0`、Python 2.2.1，结合官方在线文档及本机临时checkout只读核查；未fetch/pull本仓或操作外部agent-service。
+
+- 新增 [生产部署Handbook](handbooks/mem0-production-deployment.md) 与 [production样例](handbooks/examples/mem0/production/README.md)（Compose、无秘密.env.example及说明）。主线是单API实例、远程PG向量／应用库、远程模型、独立迁移、非root只读根目录、CA及verify-full、受控初始化与网关、分层验收、停写备份恢复和升级。原版history/messages仍为本地SQLite例外，不把它写成全部数据库远程化或集群已具备。
+- 多实例部分列出待开发的PG history/messages接口和全部构造路径替换、停写迁移及回退界限、统一配置/JWT/应用库、持久写入协调与幂等、CAS、未知付费调用和跨存储部分失败、删除发布栅栏及8项故障验收。没有实现这些改造，不新增Mem0现成配置或承诺。
+- 更新原自托管／接入手册、根README、docs索引、专项研究和设计对比的入口与部署边界；dockerignore补充排除deploy.production的private/state/backups，避免以后重建发送敏感构建上下文。两路只读复核后修正TTY输入、目录准备顺序、向量/实体按需建库对象说明，以及应用库Settings可能含明文秘密的备份处理。
+- 实际执行 `git status --short --branch`、定向源码/官方资料核对、`PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem0-production-handbook-check.py`、`git diff --check` 和 `git diff --quiet HEAD -- docs/spec-v1`。全仓Markdown相对链接/标题锚点、围栏与JSON解析通过，手册shell/JavaScript/嵌入Python语法和固定源码路径通过；新增production YAML含继承配置、8项Compose参数、4段样例shell及嵌入Python静态检查通过。关键断言覆盖无本地PG/无运行期build、单worker、独占migration profile、loopback端口、非root/只读、TLS与持久目录。检查器只存本机临时目录，不是生产验收或交付依赖。
+- 工作期间出现第28节并行Hook地图及其docs索引/交接更新，原样保留；本轮在现有实际文件上追加入口和本节，没有覆盖该文档或把其成果算作本轮Mem0部署实现。
+
+当前shell没有Docker CLI，未执行docker compose config、镜像构建/推送、数据库初始化/迁移、远程TLS握手、真实模型、容量或恢复演练。新增生产手册及样例仍需在隔离预生产环境完成实际验收；多实例及全部数据库远程化要先开发相应适配。没有读取真实密钥、修改外部agent-service或变更spec-v1合同。本轮文件留在本地，未提交或推送；mem-you-service仍无可运行服务实现。
+
+
+## 30 2026-11-15 Mem0生产Handbook整体复核与Git交付
+
+用户明确授权整体检查生产部署Handbook、模板及相关文档，修正后提交并推送GitHub。起点为 `main / 83c588a95d9deb0b9b7899ab91d0d7af027b0f8f`，继承第29节本地生产部署材料；工作区另有第28节并行Hook文档及共享索引/交接变更，不纳入本次生产部署提交。
+
+- 主审及三路独立只读复核覆盖生产手册、Compose/环境样例、Dockerfile、Dockerignore、现有手册与研究导航。补明确的部署目录切换，将needsSetup精确为账号状态；构建时归一纯代码权限以兼容严格umask checkout及非root运行，未放宽private/state权限。
+- 摘要检查增加拒绝同名shell导出及Compose控制变量覆盖，确保检查和部署使用同一配置上下文；补无模型双库TLS探测，明确应用库走db.engine、向量只核环境默认连接，不验证/configure覆盖或替代证书负例验收。修正后增量复核无剩余提交阻断项。
+- 重跑 `PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem0-production-handbook-check.py`、`git diff --check` 与合同未改检查；Markdown相对链接/锚点、围栏、JSON、shell/JavaScript/嵌入Python、固定源码路径及生产YAML/8项参数检查通过。另有6个合成digest/环境覆盖正反例与严格umask代码权限夹具通过，均未执行Docker、网络数据库或模型调用。暂存后另核对实际提交树的文件范围、链接和静态检查，防止本地并行文档掩盖缺失链接。
+- 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，提交前分叉计数0/0。交付限定生产手册及3份production样例、Dockerfile/Dockerignore、原两份Mem0手册、两份研究、根README、docs索引和本文共13份文件；共享索引与交接按内容分开暂存。第28节并行Hook材料保留本地，交接编号保留其位置，不提交未获本次授权的接入地图。按授权正常提交并推送main，不强推；最终提交与远端同步以实际Git命令和历史核对，不预写包含自身的commit。
+
+第29节“未提交/推送”是前一阶段快照，本节记录后继复核与Git交付。当前仍无Docker CLI，未构建/推送Mem0镜像、部署服务、运行数据库迁移、真实TLS/模型/容量/恢复验收；history远程化及多实例改造也未实现。未读真实密钥、修改外部agent-service或变更spec-v1合同；本项目MemoryService仍未实现。

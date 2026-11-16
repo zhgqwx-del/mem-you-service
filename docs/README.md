@@ -1,6 +1,6 @@
 # 文档状态与开发依据
 
-更新日期：2026年11月13日。当前设计版本：V1.2 修订2，目录沿用`spec-v1`；2026-10-28已补充分层和研究诊断，并修正约束完整性、授权/有序消费及验收边界。2026-10-30增加概念、端到端时序及既有验收映射；2026-11-02按agent-service实际源码细化逻辑架构、Host/应用接入、来源及使用控制链、确定性路径与验收变体。沿用Memory API/schema、检索模型/RRF参数、数值SLO及A/B/C范围，仍无服务实现或真实集成验收。
+更新日期：2026年11月15日。当前设计版本：V1.2 修订2，目录沿用`spec-v1`；2026-10-28已补充分层和研究诊断，并修正约束完整性、授权/有序消费及验收边界。2026-10-30增加概念、端到端时序及既有验收映射；2026-11-02按agent-service实际源码细化逻辑架构、Host/应用接入、来源及使用控制链、确定性路径与验收变体。沿用Memory API/schema、检索模型/RRF参数、数值SLO及A/B/C范围，仍无服务实现或真实集成验收。
 
 2026-11-08新增[Anthropic Agent Memory设计评估](../research/anthropic-agent-memory-review.md)，随后按授权将写入策略可选对照、后台维护成本及摊销口径补入04，在06中明确定向派生复核属于C并同步既有验收变体。继续采用修订2，API、数据模型、首发A及现有数值门槛不变；未启用扩展不成为首发前置。
 
@@ -11,6 +11,8 @@
 2026-11-13新增独立[Mem0专项调研](../research/mem0-focused-research.md)，按固定源码区分OSS、Platform、自托管REST和官方/社区Agent集成，给出部署、SDK/API、Pi、OpenCode V1/V2及DeepSeek Harness接入路径，并核对授权和删除边界。仅新增研究依据，现行合同、首发范围及实现状态不变。
 
 操作步骤另见[Mem0自托管部署Handbook](handbooks/mem0-self-hosted-deployment.md)和[agent-service接入Handbook](handbooks/mem0-agent-service-integration.md)：附独立部署模板与手动HTTP检查脚本，按agent-service实际`6870e7346d98ef193de51e8f328e1f967066da2a`核对现有接点。它们是实验/接入指南，不是现行Memory API合同或已完成部署、集成的证明。
+
+2026-11-15新增[Mem0生产环境部署Handbook](handbooks/mem0-production-deployment.md)和[远程中间件部署样例](handbooks/examples/mem0/production/README.md)：给出远程PostgreSQL、TLS、固定镜像、独立迁移和生产运维步骤，单独列出PG history/messages、配置发布、幂等／并发及删除栅栏等多实例待开发改造。原版仍有SQLite本地状态；未执行真实部署或改造引擎，不构成多副本已验收的证明。
 
 [Mem0与本项目设计对比](../research/mem0-design-comparison.md)进一步区分已覆盖能力、可优先落实的工程材料与需要效果证据的扩展；当前建议不改API、数据模型、A/B/C和验收门槛。
 

@@ -6,6 +6,8 @@
 
 本手册附带部署模板和手动检查脚本，固定Mem0源码commit为 `f1791daa86d469249c9b002f62644d58a1eb96a0`、Python包2.2.1。它是可供执行的实验指南，模板尚未经过镜像构建或真实模型联调；本仓库的MemoryService合同和实现状态不因此改变。完成部署后，继续阅读 [agent-service接入Handbook](mem0-agent-service-integration.md)。
 
+生产数据库与应用分离、全部数据库远程化或多台API部署，另见[生产环境部署Handbook](mem0-production-deployment.md)。本页Compose用于单机实验；远程向量库不会自动消除SQLite history/messages，不能直接复制多份作为共享状态集群。
+
 ## 1 部署完成后得到什么
 
 ```text

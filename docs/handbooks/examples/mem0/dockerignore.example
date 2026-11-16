@@ -9,3 +9,7 @@
 deploy.handbook/private
 deploy.handbook/state
 deploy.handbook/backups
+
+deploy.production/private
+deploy.production/state
+deploy.production/backups

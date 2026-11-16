@@ -1,0 +1,73 @@
+name: ${MEM0_COMPOSE_PROJECT:-mem0-production}
+
+# Copy this directory to deploy.production/ in the fixed Mem0 checkout.
+# .env contains Compose settings; private/runtime.env contains real credentials.
+# No local PostgreSQL service is defined. Run migration explicitly before the API.
+x-mem0-runtime: &mem0-runtime
+  image: "${MEM0_IMAGE:?Set MEM0_IMAGE to an immutable registry/name@sha256 digest}"
+  working_dir: /app
+  user: "${MEM0_UID:-10001}:${MEM0_GID:-10001}"
+  init: true
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+  env_file:
+    - "${MEM0_RUNTIME_ENV_FILE:?Set the private runtime env file path}"
+  environment:
+    PYTHONDONTWRITEBYTECODE: "1"
+    PYTHONUNBUFFERED: "1"
+    AUTH_DISABLED: "false"
+    MEM0_TELEMETRY: "false"
+    HISTORY_DB_PATH: /app/history/history.db
+    MEM0_DIR: /app/state/mem0
+    HOME: /app/state/mem0
+    MEM0_TELEMETRY_STATE_PATH: /app/state/mem0/server-telemetry.json
+    PGSSLMODE: verify-full
+    PGSSLROOTCERT: /etc/mem0/postgres-ca.pem
+    PGCONNECT_TIMEOUT: "10"
+    DASHBOARD_URL: "${MEM0_DASHBOARD_URL:-https://mem0-admin.example.invalid}"
+  volumes:
+    - type: bind
+      source: ./state/history
+      target: /app/history
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ./state/mem0
+      target: /app/state/mem0
+      bind:
+        create_host_path: false
+    - type: bind
+      source: "${MEM0_PG_CA_FILE:?Set the PostgreSQL CA file path}"
+      target: /etc/mem0/postgres-ca.pem
+      read_only: true
+      bind:
+        create_host_path: false
+
+services:
+  migrate:
+    <<: *mem0-runtime
+    profiles:
+      - migration
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+
+  mem0:
+    <<: *mem0-runtime
+    restart: unless-stopped
+    stop_grace_period: 120s
+    # Override the image's development CMD: no migrations, reload or pip here.
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    ports:
+      - "127.0.0.1:${MEM0_API_PORT:-18888}:8000"
+    healthcheck:
+      # APP DB reachability only; no extraction/embedding/model call.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/auth/setup-status', timeout=3).close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
