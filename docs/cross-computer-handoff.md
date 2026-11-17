@@ -1,6 +1,6 @@
 # 跨电脑开发交接说明
 
-最近核对日期：2026-11-16（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Agent记忆Hook与时序梳理见第28节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节，Hook地图复核与Git交付见第31节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期：2026-11-16（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Agent记忆Hook与时序梳理见第28节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节，Hook地图复核与Git交付见第31节，Hindsight专项评估见第32节，Hindsight复核与Git交付见第33节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
 
 ## 1 当前到底交付了什么
 
@@ -631,3 +631,27 @@ git diff --check
 - 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，核对分叉为0/0。提交范围限定地图、docs索引和本文3份文件；暂存后再核文件集合与空白检查，按授权正常提交并推送main，不强推。包含本节的提交及远端同步以实际Git结果核对，不预写自身commit。
 
 本次仅交付说明文档；未改外仓、运行真实Memory/产品API、数据库或模型，未执行HTTP/集成/容量/恢复验收。现行spec-v1合同与Mem0生产模板均未修改；动态MemoryAdapter、Host接入及完整生命周期仍待实现。
+
+
+## 32 2026-11-16 Hindsight专项调研与设计评估
+
+用户要求阅读Hindsight开源项目，评估其学习/更新机制对当前方案及流程的参考价值与优化必要性。起点为干净 `main / 547c659fd6be3af97d59292b7fa83cbd7fe2103b`；未fetch/pull本仓，不据本地origin判断远端当前状态。
+
+- 新增 [专项评估](../research/hindsight-design-review.md)，同步根README与docs索引。固定公开源码为 `b92ceb180e349a456d2b5454575067b6ff0f6306`、API-slim 1.2.1、MIT；源码只读clone至 `/private/tmp/mem-you-hindsight-review`，不作为跨电脑持久依赖。旧框架研究的1.1.0快照保留，本次以固定新版本及官方文档/论文分别说明，不混用论文opinion网络和当前接口。
+- 结论：现行职责、L0–L3、快慢路径及生命周期合同保持；优先借鉴writer具体规则、原子任务/发布重核、派生新鲜度诊断和分阶段评测。长时间窗分散召回、图/重排、主题缓存及细粒度事件按效果另评审；Hindsight已是04允许的可选对照，不增首发义务。服务内reflect与同reader下recall分开比较，总成本包括后台维护。
+- 核对并承认其已有operation重放、文档/观察删除及服务端读写scope扩展；同时区分body hash合同、best effort主题刷新与我方失效门禁、消费者清理和恢复控制。中文抽取、embedding、词法、reranker及时间规则分别核对，不将默认英文embedding/native词法当成完整中文配置。
+- 主审与三路独立只读复核覆盖现行合同、外部机制、生命周期及成稿。修正内部章节锚点与D1/D3交付归属，精化原文保存可关闭、旧状态括注上限及固定源码引用。实际执行本仓状态/HEAD核对、公开源码clone与版本/定向源码读取、`git diff --check`、`git diff --quiet HEAD -- docs/spec-v1`、`PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem-you-hindsight-doc-check.py`。检查范围为本轮4份Markdown的相对链接/标题锚点、围栏与固定源码路径/行号；现行spec-v1全文及原有JSON/Mermaid围栏保持。临时检查器不是服务测试或交付依赖。
+
+本轮仅4份研究/入口/交接文档新增或修改，留在本地，未提交或推送。未安装依赖、部署Hindsight、调用真实模型/生产服务、读取密钥或审计/修改外部agent-service；本服务、动态MemoryAdapter及完整生命周期仍未实现，合同/集成/中文效果/容量/恢复验收均未执行。候选建议不修改现行API、数据模型、检索参数、预算/SLO或A/B/C；后续仍按D1–D4及明确的实验范围继续，不自动启用历史扫描、C阶段巩固或reflect。
+
+
+## 33 2026-11-16 Hindsight整体复核与Git交付
+
+用户明确授权整体检查本次Hindsight调研及相关文档，修正后提交推送GitHub，暂不开发服务。起点仍为 `main / 547c659fd6be3af97d59292b7fa83cbd7fe2103b`，继承第32节的4份本地文档变更；没有其他工作区修改。
+
+- 主审与三路独立只读复核覆盖固定源码机制、生命周期/鉴权、现行合同及入口/交接一致性。补全时间比较：prompt强调陈述时间，程序综合mentioned/occurred字段生成排序与较旧标记；同commit的observations文档与源码mission差异改用固定文档链接，旧状态括注限制与支持事实保留分开说明。
+- 限定增量文档更新的hash/chunk重核及回退full retain，不将其等同本项目source_version CAS；删除依赖重排队明确参考D3。补充单个主题检查与批量管理列表的陈旧性差异，列表“up to date”及刷新排队不作为正文交付或清理完成证明。相关增量经独立复核，未发现剩余提交阻断问题。
+- 实际执行 `PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem-you-hindsight-precommit-check.py`、`git diff --check`、`git diff --quiet HEAD -- docs/spec-v1`。检查仓库34份Markdown的相对文件/标题链接、围栏与40个JSON解析，以及30处固定源码路径/行号，均通过；现行spec-v1全文与原有JSON/Mermaid围栏相对547c659保持。临时检查器初次把代码内正则误判为Markdown引用，排除行内代码后完整重跑通过；检查器不纳入Git，也不是服务测试或交付依赖。
+- 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，提交前 `git rev-list --left-right --count HEAD...origin/main` 为0/0。交付范围限定根README、docs索引、本文及Hindsight专项评估4份Markdown；暂存后另核文件集合、内容与空白检查，按用户授权正常提交并推送main，不强推。包含本节的提交及最终远端同步以实际Git命令和历史核对，不预写自身commit。
+
+第32节“未提交/推送”是研究阶段快照，本节为后继复核及Git交付记录。此次只交付研究文档，未开发/部署服务、安装依赖、调用真实模型或改动外部agent-service；现行API、schema、A/B/C、检索基线、数值门槛和验收矩阵均保持。真实中文效果、集成、容量、费用及恢复验收仍待后续按明确范围执行。
