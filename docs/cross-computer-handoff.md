@@ -1,6 +1,6 @@
 # 跨电脑开发交接说明
 
-最近核对日期：2026-11-15（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期：2026-11-16（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Agent记忆Hook与时序梳理见第28节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节，Hook地图复核与Git交付见第31节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
 
 ## 1 当前到底交付了什么
 
@@ -583,6 +583,18 @@ git diff --check
 第26节未fetch/未提交及3个离线场景是整理阶段快照，本节记录后继复核和Git交付。本次仍未构建或启动Docker、安装SDK/插件、读取真实密钥、调用模型、实现/联调Mem0接入或改动外部agent-service；本服务仍未实现。现行API、数据模型、A/B/C、模型/排序基线、数值门槛和验收矩阵均保持，建议尚未采纳为新的合同义务。
 
 
+## 28 2026-11-15 Agent记忆Hook映射与完整时序
+
+用户要求结合现有agent-service和Memory方案，梳理检索、写入、更新的接入阶段、每轮接口、完整时序及缺口。本仓核对起点为干净 `main / 83c588a95d9deb0b9b7899ab91d0d7af027b0f8f`；外仓为干净 `main / 6870e7346d98ef193de51e8f328e1f967066da2a`。未fetch/pull、读真实配置或运行项目服务。
+
+- 新增 [Hook与时序接入地图](handbooks/agent-memory-hook-integration.md)，更新docs索引；固定外仓源码链接，区分现有middleware/observer、拟新增Host接点及现行Memory接口。附正常一轮与正式更正/消费者清理两张Mermaid图，解释4次/7次请求的条件示例及确定性skip。
+- 三路只读核查覆盖Hook真实时序、输入commit/原生身份、工具回执、摘要、GET/SSE交付、合同与能力切片；两路再独立审阅成稿。明确beforePrompt尚未持久输入、beforeModelStep不得改消息、压缩可先于主模型、PostToolUse只有观察元数据、Stop晚于流式发布；可靠来源、动态证据及完整失效仍需开发。
+- 实际执行两仓 `git status --short --branch`、`git rev-parse HEAD`，定向 `rg`/`nl`/`sed` 源码核对，`PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem0-focused-doc-check.py`、16处固定源码文件/行号核查、`git diff --check`、`git diff --quiet HEAD -- docs/spec-v1`，以及 `node /private/tmp/mem-you-hook-mermaid-qa.cjs`。文档相对链接/锚点、围栏与40个JSON解析通过，现行spec-v1全文未改；两张Mermaid经本机Obsidian附带库解析、实际渲染并查看。Chrome初次受沙箱限制SIGABRT，随后经自动审查允许的临时独立无头浏览器完成，页面网络请求阻断，不使用现有浏览器profile或访问服务。临时检查器/PNG仅为本机文档验证材料，不是服务依赖。
+- 本轮期间工作区出现其他并行任务的根README修改、Mem0生产部署文档及production模板，原样保留，不计入本轮Hook说明交付。本文及docs索引如后续并行更新，以实际文件合并核对，不覆盖他人内容。
+
+本轮本地变更为接入地图、docs索引及本交接记录，未提交或推送；未修改外部agent-service。MemoryService、动态MemoryAdapter和full_lifecycle仍未实现/联调，未执行HTTP/数据库/模型/性能/恢复验收。后续按04的D1–D4推进，拟新增Host接口在外仓实施前独立冻结；不自动启用历史扫描、MCP或后台巩固。
+
+
 ## 29 2026-11-15 Mem0生产部署与多实例改造Handbook
 
 用户要求形成远程数据库等中间件的生产部署手册，并单独说明Mem0多实例改造、步骤和限制，同步相关文档。起点为干净 `main / 83c588a95d9deb0b9b7899ab91d0d7af027b0f8f`。沿用Mem0固定 `f1791daa86d469249c9b002f62644d58a1eb96a0`、Python 2.2.1，结合官方在线文档及本机临时checkout只读核查；未fetch/pull本仓或操作外部agent-service。
@@ -606,3 +618,16 @@ git diff --check
 - 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，提交前分叉计数0/0。交付限定生产手册及3份production样例、Dockerfile/Dockerignore、原两份Mem0手册、两份研究、根README、docs索引和本文共13份文件；共享索引与交接按内容分开暂存。第28节并行Hook材料保留本地，交接编号保留其位置，不提交未获本次授权的接入地图。按授权正常提交并推送main，不强推；最终提交与远端同步以实际Git命令和历史核对，不预写包含自身的commit。
 
 第29节“未提交/推送”是前一阶段快照，本节记录后继复核与Git交付。当前仍无Docker CLI，未构建/推送Mem0镜像、部署服务、运行数据库迁移、真实TLS/模型/容量/恢复验收；history远程化及多实例改造也未实现。未读真实密钥、修改外部agent-service或变更spec-v1合同；本项目MemoryService仍未实现。
+
+
+## 31 2026-11-16 Hook接入地图整体复核与Git交付
+
+用户明确授权将此前并行保留的Hook接入地图、索引和交接记录整体复核、修正后提交并推送。起点为 `main / 6d25a58dbd4be263f1cbbd7ff5fbc7fd997d026c`，工作区仅有本文、docs索引及未跟踪的 [Hook接入地图](handbooks/agent-memory-hook-integration.md)；外部agent-service核对仍为干净 `main / 6870e7346d98ef193de51e8f328e1f967066da2a`。第28–30节的“Hook留本地”是此前阶段快照，本节为后继交付记录。
+
+- 主审和三路独立只读复核覆盖真实middleware/observer、输入持久化、摘要/水合、工具回执、主模型及fallback、流式与GET/SSE出口、现行Memory合同和两张时序图。原有“现成能力／拟新增职责”边界保持，未把说明图当作已实现接口。
+- 修正fence关闭条件：已committed动作须核对本action的Memory applied回执／连续barrier；尚未发送且已持久取消，或权威终态证明未提交且不会迟到提交的动作，可依相应证明关闭；unknown、超时、NOT_FOUND或lease到期不构成证明，消费者清理仍独立确认。
+- 明确4次／7次仅为每批不超过32包、一次最终交付校验的条件示例，额外工具、分批、刷新和流式／重放出口新增校验另计。更正图对齐03的工具前validate→持久pending fence→records.correct顺序。地图核对日期及当前本仓基线同步更新，历史第28节不覆盖改写。
+- 实际执行两仓状态/HEAD核对、固定源码路径及行号检查、`PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem0-focused-doc-check.py`、`git diff --check`、`git diff --quiet HEAD -- docs/spec-v1` 与 `node /private/tmp/mem-you-hook-mermaid-qa.cjs`。文档链接/锚点、围栏及40个JSON解析通过；两图经临时独立无头浏览器解析、渲染并查看，网络请求阻断，不使用现有浏览器profile。临时脚本/图片不纳入Git，也不是服务测试或交付依赖。
+- 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，核对分叉为0/0。提交范围限定地图、docs索引和本文3份文件；暂存后再核文件集合与空白检查，按授权正常提交并推送main，不强推。包含本节的提交及远端同步以实际Git结果核对，不预写自身commit。
+
+本次仅交付说明文档；未改外仓、运行真实Memory/产品API、数据库或模型，未执行HTTP/集成/容量/恢复验收。现行spec-v1合同与Mem0生产模板均未修改；动态MemoryAdapter、Host接入及完整生命周期仍待实现。
