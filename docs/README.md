@@ -24,6 +24,8 @@
 
 2026-11-18新增[Hindsight开源自部署Handbook](handbooks/hindsight-self-hosted-deployment.md)和[agent-service接入Handbook](handbooks/hindsight-agent-service-integration.md)，并在研究中补核心架构理念。沿用固定Hindsight 1.2.1及重新核对的agent-service源码，说明配置、操作、调用流程、PoC与正式接入的待开发边界；文档与部署样例不构成已完成部署或服务实现。
 
+同日在[Hindsight接入Handbook第7节](handbooks/hindsight-agent-service-integration.md#7-路线b的待开发工作包)补充宿主规则、主Agent与抽取/归纳模型的分工，recall/retain决策、turn/step频率、AgentLoop时序及固定源码改造位置。retain提交、operation轮询、后台归纳与可选reflect分别计数；说明POC文档后过滤和正式来源排除的差异，动态适配及完整生命周期仍待开发。
+
 同日新增[Hindsight生产环境部署Handbook](handbooks/hindsight-production-deployment.md)：说明远程PostgreSQL及检索扩展、TLS与密码文件、远程模型、独立迁移、API/worker分离和多实例运维。原版共享PG任务队列与多worker能力按固定源码说明，未知付费调用、业务授权和完整生命周期另列边界；生产样例仍待隔离环境实际验收。
 
 **整体方案从[V1整体方案与开发入口](spec-v1/README.md)开始；核心使用00–04，持久聊天接入另执行06，不使用下面两份历史方案的接口草案。**

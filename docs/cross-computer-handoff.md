@@ -1,6 +1,6 @@
 # 跨电脑开发交接说明
 
-最近核对日期：2026-11-18（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Agent记忆Hook与时序梳理见第28节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节，Hook地图复核与Git交付见第31节，Hindsight专项评估见第32节，Hindsight复核与Git交付见第33节，Hindsight架构说明与两份Handbook见第34节，Hindsight Handbook复核与Git交付见第35节，Mem0检索/写入决策、AgentLoop接入及复核交付见第36节，Hindsight生产部署、多实例配置及复核交付见第37节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期：2026-11-18（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Agent记忆Hook与时序梳理见第28节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节，Hook地图复核与Git交付见第31节，Hindsight专项评估见第32节，Hindsight复核与Git交付见第33节，Hindsight架构说明与两份Handbook见第34节，Hindsight Handbook复核与Git交付见第35节，Mem0检索/写入决策、AgentLoop接入及复核交付见第36节，Hindsight生产部署、多实例配置及复核交付见第37节，Hindsight召回/写入决策、AgentLoop接入及复核交付见第38节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
 
 ## 1 当前到底交付了什么
 
@@ -738,3 +738,29 @@ git diff --check
 - 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，本次核对分叉为0/0。提交限定生产Handbook、production README/Compose、专项研究文字及本文第37.2节，共5份文件；共享交接只暂存本节，保留第38节及其它接入/索引修改在工作区。暂存后核对发布版本的文件集合、内容、链接和空白，再按授权正常提交并推送main，不强推；最终SHA和远端同步以实际Git结果为准。
 
 本次仅复核文档与候选配置；没有Docker CLI，未执行真实Compose展开、构建/部署、数据库/TLS/模型或恢复验收，未开发服务、修改外部agent-service或现行spec-v1合同。生产部署、中文质量、费用、容量/HA及完整生命周期仍按手册列出的边界实施和验收。
+
+
+## 38 2026-11-18 Hindsight召回写入决策与AgentLoop接入补充
+
+用户要求参考Mem0补充，将Hindsight recall/retain决策、规则与LLM分工、turn/step频率、AgentLoop时序和代码改造位置补入现有接入Handbook，并同步索引/交接，暂不修改代码。起点为干净 `main / 2234661ffa6ba5268eefce12fc28d1ecfd5b6abf`；只读核agent-service为干净6870e734、Hindsight为干净b92ceb1。未fetch/pull、启动服务或读取真实配置。
+
+工作期间出现并行Hindsight生产手册、模板及研究修订，保留实际工作区内容，不计入本轮接入补充；共享索引/交接以最新文件追加，未覆盖并行材料。
+
+- 扩充 [Hindsight接入Handbook第7节](handbooks/hindsight-agent-service-integration.md#7-路线b的待开发工作包)，同步根README及docs索引。明确宿主规则负责bank/授权、首次recall、来源准入和预算；主Agent受控工具补查；Hindsight抽取、归纳与reflect各有职责和费用。每turn持久初始决定，step/fallback复用，steer新item按需新revision及独立写任务。
+- 补retain异步提交、原operation轮询、后台归纳和可选reflect的独立计数：3step示例为2次recall、1次retain提交及2次GET，共5次REST请求，不据此推算内部模型调用。原生提交后可靠建任务，初始快照冻结前不提交本轮retain；可能补查时保守延后，并覆盖同group镜像及派生。POC document过滤仅为返回后剔除，不冒充HTTP排除字段、完整支持闭包或授权。
+- 新增Runtime时序图、固定源码改造表及以后验证项，衔接原5.3/5.4与工作包。图中服务端抽取和宿主轮询并行，Stop不承担可靠摄取；主体不明、失败、accepted/completed与自有Memory applied/barrier/清理分开。固定代码可保存原文及异步payload，即使零事实也不能宣称原话未存；不沿用官网“原文从不保存”的概述替代实现。
+- 主审、两路源码/Host核查及独立成稿复核已收口，未发现剩余文档阻断。新增图已通过 `node /private/tmp/hindsight-integration-decisions-mermaid.cjs` 在临时独立无头浏览器中离线解析、渲染及查看，网络阻断、不用现有profile；原有图与示例代码保持。实际执行 `PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/hindsight-integration-decisions-check.py`、`git diff --check`和spec-v1保护检查；4份相关Markdown的链接/锚点、围栏、38处固定源码引用及4段JavaScript/2段JSON检查通过。临时检查器及图片不纳入Git。
+
+本轮仅修改接入Handbook、两级索引及本文4份Markdown，未修改代码、部署模板或现行spec-v1，也未部署或调用模型。补充编写阶段留在本地，未提交或推送；动态MemoryAdapter、队列及完整生命周期仍待实施，静态/图示检查不构成真实集成或质量、费用、恢复验收。
+
+
+### 38.1 Hindsight接入补充整体复核与Git交付
+
+用户后继明确授权整体复核本次Hindsight接入补充及两级索引、交接，确认后提交并推送，仍限文档。起点为 `main / 8a3be392d6ff09053c27d301988ba072d30e8a0f`；并行生产部署修订已在该提交独立交付，当前仅4份接入文档待提交。外仓重新核为干净6870e734，Hindsight固定b92ceb1源码工作区干净。
+
+- 主审及两路独立只读复核覆盖规则/主Agent/抽取归纳与reflect分工、turn/step及steer/fallback、异步UUID/body冻结、完成语义、Host/Pi接点和现行合同。5次REST示例在一次首次recall、一次补查、一次单策略异步retain提交和两次操作GET前提下成立；不混算内部检索/模型、刷新、重试或后续归纳。
+- 收紧“pending”措辞：工具收到operation引用后记录宿主本地待核对状态，不推断服务器仍为pending；对应完成证据与当前文档/召回可用性另核。completed不证明归纳/主题、Memory applied/barrier或消费者清理完成。文本、频率表和并行图同步；增量未改变原接口、示例JSON/JavaScript或现行spec-v1。
+- 实际重跑 `PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/hindsight-integration-decisions-check.py`、`git diff --check`及spec-v1/部署模板保护核对。4份Markdown的链接/锚点、围栏、38处固定源码路径/行号、4段JavaScript和2段JSON检查通过；原有图保留。修订后的新图经 `node /private/tmp/hindsight-integration-decisions-mermaid.cjs` 用临时独立无头浏览器离线解析、渲染并查看，网络阻断、不使用现有profile；临时脚本和图片不纳入Git。
+- 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，提交前分叉为0/0。交付限定Hindsight接入Handbook、根README、docs索引和本文4份Markdown；暂存后核对完整文件集合、字节与空白，按授权正常提交并推送main，不强推。最终SHA和远端同步以实际Git与本轮回执核对。
+
+第38节“补充编写阶段未提交”是此前快照，本小节记录后继复核与Git交付。本轮未修改服务代码、部署样例、现行合同或外部agent-service，也未部署、运行产品测试或调用真实模型；动态接入、中文质量、费用、恢复及full_lifecycle仍待实施验收。

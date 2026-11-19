@@ -1,12 +1,14 @@
 # agent-service 接入自托管 Hindsight Handbook
 
-适用日期：2026-11-18。目标：让现有agent-service通过自己部署的Hindsight读取跨会话记忆，写清配置、人工操作、调用流程及从合成POC到完整生命周期的待开发边界。
+适用日期：2026-11-18。目标：让现有agent-service通过自己部署的Hindsight读取跨会话记忆，写清配置、recall/retain决策、AgentLoop时序、调用频率及从合成POC到完整生命周期的待开发边界。
 
 Hindsight可以作为外部HTTP记忆服务，不要求替换agent-service的主模型。建议先在可信App后端编排“recall→冻结输入→提交turn”，用独立任务retain原始来源；需要正式动态记忆时，再开发MemoryAdapter、证据依赖和Host消费门禁。Hindsight的架构理念及现行设计比较见[专项评估](../../research/hindsight-design-review.md)，开源部署先按[部署Handbook](hindsight-self-hosted-deployment.md)完成。
 
 生产侧远程数据库、独立worker与多API部署另见[生产部署Handbook](hindsight-production-deployment.md)。部署副本增加不自动补齐本页的Runtime、业务授权、来源依赖或消费者清理工作。
 
 本手册固定Hindsight源码 [`b92ceb1`](https://github.com/vectorize-io/hindsight/tree/b92ceb180e349a456d2b5454575067b6ff0f6306)、API和TypeScript客户端1.2.1；只读核查本机agent-service为干净 `main / 6870e7346d98ef193de51e8f328e1f967066da2a`。下文配置名、适配函数和待开发流程用于实施设计，本次没有安装SDK、发请求、部署服务或修改外仓。
+
+**建议采用混合决策：宿主规则控制首次recall、可信bank和来源准入，主Agent在工具循环内按需补查，Hindsight抽取/归纳模型负责派生记忆。** 每turn做初始读取决定，后续step复用快照；retain提交、operation核对、归纳及可选reflect分别计数。具体决策、时序和代码改造位置见[第7节](#7-路线b的待开发工作包)；当前agent-service尚未实现这些动态调用。
 
 ## 1 先确定接入层级
 
@@ -206,7 +208,7 @@ REST使用snake_case；TypeScript SDK使用`maxTokens`、`queryTimestamp`、`ope
 
 ### 5.3 每轮先查 冻结输入 再提交
 
-对新的业务operation，先持久原始输入并建立独立来源写入任务；自动采集初期保持关闭或仅显式启用合成来源。需要历史时，调用第4节recall并排除当前输入对应的document，之后冻结整个Agent请求。没有变更收益或已确认不依赖历史的确定性输入，可按既有合同记录skip；不能仅凭没有“上次/之前”关键词就跳过必要历史。
+对新的业务operation，先持久原始输入并建立独立来源写入任务；自动采集初期保持关闭或仅显式启用合成来源。需要历史时，调用第4节recall，在客户端剔除当前输入对应的document后冻结整个Agent请求。这种POC后过滤不保证完整来源排除，实际retain放行顺序见第7节。只有有可信依据且不依赖历史的确定性路径才记录skip；不能仅凭没有“上次/之前”关键词就跳过必要历史。
 
 ```javascript
 function makePocTurnBody(originalUserText, memories) {
@@ -271,7 +273,7 @@ sequenceDiagram
 
 retain任务只读取journal中的真实原话或经验证的正式回执，不读取拼接后的effective input、召回块或完整Agent答案。使用明确speaker/context区分用户陈述与Agent经历；用户说“我头痛”是关于用户的world，不是Agent的experience。助手建议、模型推断及产品正式记录不能因一并写入而获得相同权威。
 
-写回应在来源已可靠持久后入队，不要求等待Agent自然结束；因此模型失败不会丢掉原来源。当前Host预检分配ID不等于输入已提交，真实原生item绑定必须在实际持久边界实现。仅用Stop、observer或内存Promise都不足以建立可靠来源队列。[Host输入与生命周期][agent-host]、[接入Hook地图](agent-memory-hook-integration.md)。
+写回应在来源已可靠持久后入队，不要求等待Agent自然结束；实际发送仍遵守第7节的同轮读写顺序，因此模型失败也能保留来源及待处理任务。当前Host预检分配ID不等于输入已提交，真实原生item绑定必须在实际持久边界实现。仅用Stop、observer或内存Promise都不足以建立可靠来源队列。[Host输入与生命周期][agent-host]、[接入Hook地图](agent-memory-hook-integration.md)。
 
 ## 6 异步 unknown 更正与删除
 
@@ -343,6 +345,165 @@ sequenceDiagram
 
 ## 7 路线B的待开发工作包
 
+本节结合固定agent-service说明接入设计；MemoryAdapter、内部决策状态和工具wrapper仍待开发。保留现行MemoryService的来源/授权/生命周期合同，Hindsight承担候选派生引擎职责。[Mem0接入决策](mem0-agent-service-integration.md#6-路线b的runtime实施步骤)可对照阅读，具体引擎接口和完成语义分别处理。
+
+### 7.1 宿主 主Agent与Hindsight模型的分工
+
+宿主指agent-runner及SessionHost、Store和拟新增适配器；主Agent指Pi内处理当前用户任务的智能体。本文的AgentLoop是**主模型→受控工具→下一模型step**的循环，一个服务端用户turn可包含多个step。Pi内部`turn_start`在适配代码中映射为step；Hindsight自身的异步worker和reflect循环另行统计。[Pi循环与step][agent-pi-loop]
+
+| 判断或执行 | 负责人 | 职责 |
+|---|---|---|
+| 允许访问哪些记忆、预算和来源资格 | 宿主规则 | 从可信身份绑定bank/owner/project、用途和权限；模型不自行扩大范围 |
+| 首模型前recall还是跳过 | 拟新增MemoryAdapter | 根据可信任务路径和历史依赖持久初始决定，冻结实际查询及快照 |
+| 循环内是否缺历史或需要补读 | 主Agent的任务LLM | 请求受控recall/get工具；参数、预算及结果依赖由宿主检查 |
+| 哪些内容送入retain | 宿主采集策略与持久任务 | 选择可靠原话或正式事件，固定来源版本、document ID、操作UUID及body |
+| 提炼事实、实体及相关派生 | Hindsight抽取模型与引擎 | retain处理输入，形成零到多条事实并维护关联；效果取决于策略和模型 |
+| 后台归纳或反思 | Hindsight对应模型，按明确能力启用 | observations/主题刷新独立推进；reflect按问题运行工具推理并合成答案 |
+
+普通recall返回证据条目，包含多路检索、融合、重排及token预算；它不会自动把当前问题作为新来源retain。embedding、reranker和可选decision-model重排分别有资源/费用；recall的日志/trace等留存也需按配置核对。reflect是另一种生成式推理调用，本手册默认不把它放在每轮召回前。[Recall实现][hs-recall-engine]、[Reflect实现][hs-reflect-engine]
+
+### 7.2 首次recall与补查决策
+
+| 输入或任务 | 建议处理 |
+|---|---|
+| 历史、个人偏好、项目决策、指代或消歧 | 首个主模型请求前recall，提供适用证据及缺口 |
+| 需要个性化背景的开放式咨询 | 初期保守recall；必须生效的已知约束由宿主保证进入适用上下文 |
+| 已确认结构化操作或可信确定性查询，主体/字段/回应均不依赖历史 | 记录skip及依据；精确统计仍查产品后端 |
+| 主体未知、无权限、服务失败 | 分别记录待澄清、拒绝或降级；不猜bank、不扩大范围、不伪装成成功空历史 |
+| 主模型在Loop内发现证据不足或问题转向 | 调受控recall/get补查，结果先登记实际依赖再入下一step |
+
+初始决定关联可信operation，原生提交后绑定实际turn；记录策略版本、理由、查询/时间锚点、bank/scope、types、预算、query revision、状态和快照。重复callback复用相同决定，后续step/fallback复用有效证据；steer新增原生item、主体/问题变化或证据失效时才按需开启新revision。[steer接点][agent-steer]
+
+小LLM分类器可作为后续Mem0/Hindsight对照实验的共同优化：另记其费用和版本，比较历史约束漏检、收益及延迟，模糊情况保守读取。当前[03§2.1](../spec-v1/03-agent-sequences-and-recovery.md#21-目标生命周期)要求需要理解的自由输入在首模型前prepare；仅可信确定性路径允许skip。分类器或关键词不能直接成为该完整合同的跳过依据。普通Runtime POST turn及`stream=false`也不提供现成的无模型确定性执行入口。
+
+第4节的 `recallForPoc` 是**返回后按document_id过滤**，会先占用候选/token预算。固定HTTP RecallRequest没有`exclude_document_ids`参数；tag/tag_groups须按实际schema和授权实现，不能虚构字段或只靠客户端过滤作为权限控制。POC只查world，其单文档剔除也不保证排除同group正式镜像或聚合observation；有界source_facts不提供完整支持闭包。[请求模型][hs-recall-request]
+
+### 7.3 来源准入 retain与同轮读写
+
+聊天持久化、现行合同的来源镜像和Hindsight抽取分别编排。宿主可以把获准来源直接交retain处理，无需固定另加一轮“值不值得记住”的LLM调用；采集开关、来源等级和明确记忆意图仍由宿主控制。
+
+| 来源/交互 | 建议处理 |
+|---|---|
+| “以后回答简短”、明确项目决策 | 可靠持久后建立retain任务；偏好变化保留新来源，并定位需要失效/修订的旧依据 |
+| “这次简短”或纯寒暄 | 作为本轮要求或跳过采集；“好的”若确认上文决策，结合有来源的上下文判断 |
+| 助手建议、模型推断、工具结果 | 初期关闭助手自动采集；确需记忆时明确归属和确认条件，不升级为用户事实 |
+| 检索块、拼接effective input、完整答案 | 不整体回写，避免旧记忆与模型推断循环采集 |
+| 正式提交/更正 | 从可信回执/Outbox进入独立来源，与原输入关联；不由retain替代产品提交 |
+| 更正、撤回或“别记这条” | 先执行来源及控制流程；禁止不允许的新发布，已存在内容及宿主副本分别处理 |
+
+以owner和原生item/来源ID及版本建任务，持久document映射、UUID、冻结body/hash、策略和状态。原生提交与建任务之间用同事务或可恢复扫描补齐；steer新item单独处理，失败/中断turn中的获准持久输入也不丢任务。自动retain和显式工具共用任务或记录覆盖关系，避免两路重复；同document的replace/append不能代替请求幂等及来源版本CAS。[异步及更新边界](#6-异步-unknown-更正与删除)
+
+**本轮retain提交应在首次recall快照冻结或可信skip之后放行。** 若可能在Loop内补查且没有可靠来源排除，保守地延后本turn的自动retain至结束。这个控制还需覆盖本轮同group镜像、显式retain及其派生；单独延后一个任务不能代表所有写入都已隔离。显式工具确需提前写入时，先设计后续查询排除和revision切换，不能让当前陈述回流成历史证明。
+
+异步retain返回operation引用后，由独立任务有界轮询原UUID；工具可以明确返回“已受理、待核对”，这是宿主本地状态，不断言服务端此刻仍为pending。只有对应完成证据到达后才能确认该retain已处理，不能把accepted、主Agent一句“记住了”或本turn终态当成完成。`completed`不证明后续归纳、主题刷新、Memory applied/barrier或消费者清理；读取新事实需另核当前文档/召回结果和版本。[操作语义](#61-两套操作分别恢复)
+
+固定版本默认可保存原文档，异步operation payload也包含输入；即使零事实也可能已持久原文。来源准入不能全部留给抽取模型事后筛选。[原文档处理][hs-document-store]、[异步任务payload][hs-async-payload]。未知、部分失败或服务端重试按第6节及[生产手册的worker恢复边界](hindsight-production-deployment.md#7-worker身份-关闭及故障接管)核对，不换UUID/body盲重送。
+
+### 7.4 每个turn和step的调用频率
+
+当前agent-service尚无自动Hindsight适配，当前动态调用为0。下表描述完成接入后的宿主逻辑REST请求；引擎内部检索、模型、DB及重试另记成本。
+
+| 动作 | 位置 | 频率 |
+|---|---|---|
+| 初始recall/skip决定 | Host首模型前 | 每有效turn一次；steer等变更按需新revision |
+| 首次recall POST | Host准备阶段，Pi工具循环前 | 通常0或1次；刷新另计 |
+| 后续step/fallback | 主模型准入 | 复用并检查实际快照，不因重复Hook重新recall |
+| 工具recall/get | AgentLoop内受控工具 | 0..N次，按查询/补读预算计数 |
+| 自动retain POST | 宿主持久写任务，主Loop外 | 每个获准来源版本通常一个逻辑任务；有界批次和核对另计 |
+| 显式retain/更正工具 | AgentLoop内 | 0..N次，与自动采集协调；宿主待核对不等于已完成 |
+| GET原operation | 独立写任务核对器 | 按进度/退避/期限0..N次，不按模型step或固定每turn一次 |
+| observations/主题刷新 | Hindsight后台，按启用配置执行 | 按实际派生任务和模型调用计，独立于主Agent step；不在本轮自动启用 |
+| reflect | 明确授权的可选推理入口 | 本手册默认0；启用后单独计请求及内部模型/工具调用 |
+| 来源/业务事件、bundle validate | 现行合同各自链路/使用关口 | 不与recall次数合并；Hindsight operation和recall不提供本项目validate接口 |
+
+例如一个turn有3个主模型step、一次首次recall、一次工具补查、一次单策略异步retain提交，随后两次GET原operation取得processing/completed：共 **2次recall＋1次retain提交＋2次操作核对＝5次Hindsight REST请求**。这不含其它文档补读、刷新、重试或reflect；一次retain内部的抽取/embedding和后续归纳也不能按这5次推算模型调用数。
+
+### 7.5 Host与AgentLoop接入时序
+
+当前Host顺序是beforePrompt → 历史读取/水合及可能compact → 原生item/turn提交 → UserPromptSubmit观察 → engine.start。策略可在beforePrompt附近制定；来源就绪以真实提交为界，历史/摘要的授权及来源门禁还须早于内容消费。[前置处理][agent-preflight]、[原生提交][agent-input-commit]
+
+下图为路线B待开发的继续路径：recall正常完成或可信skip，自动retain保守延后以避开同轮补查。主体未明、拒绝或检索失败按7.2澄清/降级/阻断，不能作为成功skip继续。完整更正、交付与失效接续第6节和[Hook地图](agent-memory-hook-integration.md)，图中的证据依赖属于自有控制层。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant H as SessionHost
+    participant A as MemoryAdapter
+    participant P as Pi AgentLoop
+    participant W as 宿主写入Worker
+    participant M as Hindsight
+    H->>A: 初始读取决定与历史消费门禁
+    A->>A: 持久策略及可信操作身份
+    H->>H: 历史准备及必要压缩
+    H->>H: 提交原生消息和turn
+    H->>A: 新增可靠就绪接点，绑定持久消息
+    A->>A: 获准来源建任务，暂缓retain
+    alt 需要历史且bank/主体已确认
+        A->>M: recall，查询版本与有界预算
+        M-->>A: 证据条目或成功空结果
+        A->>A: 冻结快照与实际依赖
+    else 可信确定无需历史
+        A->>A: 持久skip及依据
+    end
+    A-->>H: 受控证据与实际依赖
+    H->>P: engine.start
+    loop 主模型step，fallback仍经过准入
+        P->>H: prepareModelStep
+        H->>A: 核授权及证据可用性，复用或刷新
+        A-->>H: 可用快照或阻断/重建要求
+        H-->>P: 受控上下文与准入结果
+        P->>P: 主模型推理
+        opt 主Agent按需补查
+            P->>H: 受控recall工具
+            H->>A: 绑定bank并核预算/权限
+            A->>M: recall
+            M-->>A: 补查证据
+            A->>H: 保存工具回执及依赖
+            H-->>P: 结果进入后续step
+        end
+    end
+    P-->>H: 最终结果或失败/中断
+    H->>H: 持久终态，Stop通知收敛
+    W->>A: 核来源版本、授权及任务放行条件
+    A-->>W: 允许发送冻结原输入
+    W->>M: retain async，稳定UUID与body
+    M-->>W: operation引用
+    W->>W: 持久引用及本地待核对状态
+    par 服务端后台处理
+        M->>M: 异步抽取与存储
+    and 宿主独立核对
+        loop 按退避/期限核对原操作
+            W->>M: GET原operation
+            M-->>W: 状态与结果
+            W->>W: 更新任务状态与来源映射
+        end
+    end
+    Note over W,M: completed仅对应retain；归纳及消费者清理分别核对
+```
+
+写任务的放行从持久来源/turn状态恢复，不依赖Stop是否送达；无同轮补查且来源已就绪时，可在初始快照冻结后独立执行。显式retain工具也先保存回执/operation映射，再返回待核对或已核实完成，后续处理见第6节；不把operation轮询塞进每个主模型step。
+
+### 7.6 待改造的具体代码位置
+
+路径相对agent-service根目录，行号绑定6870e734；拟新增接口尚不存在，core保持引擎中立，由runner装配具体客户端与任务组件。
+
+| 现有位置 | 待补齐内容 |
+|---|---|
+| [session/host.ts:183][agent-host]，拟新增 `packages/core/src/memory/types.ts` | 类型化memory依赖、决策/revision、证据快照和取消/恢复状态 |
+| [runner main.ts:877/1033][agent-runner-tools] | Hindsight客户端、安全配置、工具registry、任务worker及Host装配；模型不持有key |
+| [host.ts:2558/2762][agent-input-commit] | 前置策略/来源门禁；提交后可靠任务与原生身份绑定；同事务或恢复扫描补齐崩溃缺口 |
+| [host.ts:3176/3186/3254][agent-model-gate]、[engine/pi.ts:215][agent-pi-context]及 `context/assemble.ts` | 普通/fallback均覆盖的受控证据区和使用检查；新增memory准入独立于现有可选Hook开关，保留messages不可任意改写约束 |
+| [tools/builtin/index.ts:64][agent-builtin-tools]、runner工具/MCP注册 | 受控recall/get/retain工具，可信bank/scope、预算、操作身份及来源绑定 |
+| [host.ts:3122][agent-tool-result] | 工具正文、实际依赖和异步operation先可靠持久，再交给主Agent |
+| [host.ts:3812/3843][agent-steer] | steer新item任务身份及按需刷新，不按Hook回调次数重复计费 |
+| [host.ts:3974][agent-compaction]、[PiSummariser][agent-summariser] | 历史水合、自动/显式摘要及其递归依赖，门禁早于相关消费 |
+| `packages/store/src/`、`packages/store/migrations/`及可信App仓储 | 持久策略、来源/document/operation映射、队列、轮询状态与恢复；不是内存Map或未等待Promise |
+| [observer类型][agent-observer-types]、[host.ts:4278][agent-stop]及GET/SSE出口 | observer不带可靠正文，Stop只收敛；新增交付/取消、迟到抑制及所有副本清理 |
+
+现有Host/Pi会检查middleware前后的messages一致，`memory-injection`只支持静态system前后缀。动态证据不能通过放宽该检查或改静态配置绕接；新适配还需覆盖独立摘要路径，而不是仅在主模型Hook加一次HTTP调用。[Host模型准入][agent-model-gate]、[Pi消息检查][agent-pi-context]、[静态注入][agent-middleware]
+
+### 7.7 工作包与实施顺序
+
 | 工作 | 实施位置/职责 | 完成前不能声称什么 |
 |---|---|---|
 | 持久原输入与可信映射 | App journal、产品后端；原生item可靠提交后绑定稳定source/group/origin | 不能把预检ID或observer当来源提交 |
@@ -383,6 +544,8 @@ Hindsight官方SDK和LLM wrapper也不能直接包裹当前SessionHost：现有p
 | 独立Hindsight | 部署手册的认证、持久化、中文检索、异步状态及删除检查；模型费用独立记录 |
 | 合成App POC | 全新session有/无历史对照、两owner/两project隔离、冻结body、空/失败状态、当前来源排除 |
 | 写回与unknown | 原话而非拼接input、用户/助手/正式回执分开、同UUID不换body、部分任务和重启恢复 |
+| 决策与频率 | 每turn初始决定、step/fallback复用、steer新item/revision；recall、retain提交、操作轮询、归纳及reflect分别计数 |
+| 同轮读写 | 初始快照前不提交本轮retain；补查、同group镜像及聚合派生均纳入来源排除；区分POC后过滤和完整依赖 |
 | 更新和时间 | 独立事件/指定更正、临时/长期偏好、迟到旧来源、主体与否定、严格时间查询 |
 | 正式Runtime | 多step、fallback、自动/显式摘要、工具正文、并发撤权、更正、取消和迟到输出 |
 | full生命周期 | 精确依赖、Host历史/摘要/cache/GET/SSE及恢复不复活；协议符合度与回答效果分开报告 |
@@ -415,3 +578,21 @@ Hindsight官方SDK和LLM wrapper也不能直接包裹当前SessionHost：现有p
 [hs-refresh]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/engine/memory_engine.py#L21643
 [hs-mcp]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-docs/docs/developer/mcp-server.md
 [hs-mcp-tools]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/mcp_tools.py#L847
+[hs-recall-request]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/api/http.py#L609
+[hs-recall-engine]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/engine/memory_engine.py#L9573
+[hs-reflect-engine]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/engine/memory_engine.py#L16148
+[hs-document-store]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/engine/retain/orchestrator.py#L3244
+[hs-async-payload]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/engine/memory_engine.py#L23935
+[agent-pi-loop]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/engine/pi.ts#L55
+[agent-runner-tools]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/apps/agent-runner/src/main.ts#L877
+[agent-preflight]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L2558
+[agent-input-commit]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L2762
+[agent-model-gate]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L3176
+[agent-pi-context]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/engine/pi.ts#L215
+[agent-builtin-tools]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/tools/builtin/index.ts#L64
+[agent-tool-result]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L3122
+[agent-steer]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L3812
+[agent-compaction]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L3974
+[agent-summariser]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/engine/pi.ts#L427
+[agent-observer-types]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/hooks/lifecycle-types.ts#L21
+[agent-stop]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L4278
