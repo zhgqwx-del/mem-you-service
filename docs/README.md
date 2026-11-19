@@ -32,11 +32,12 @@
 
 第一次人工阅读或准备会议介绍，直接看[新手阅读与会议分享](spec-v1/README.md#0-新手阅读与会议分享)：包含建议顺序、具体章节、案例与讲解时间，不需要先通读全部分册。
 
-跨电脑或新会话接手见[开发交接说明](cross-computer-handoff.md)及[可复制的完整 Prompt](continuation-prompt.md)（2026-10-28新增）。两者记录上手与实现状态，不新增业务合同。
+跨电脑或新会话接手先看[开发交接说明](cross-computer-handoff.md)第 1–7 节，然后使用[可复制的接续 Prompt](continuation-prompt.md)。
 
 | 文档 | 状态 | 用法 |
 |---|---|---|
 | [整体方案与开发入口](spec-v1/README.md) | 当前 | 架构概览、首发切片、按职责选择开发文档 |
+| [STDD/SDD 项目入口](stdd/project.md) | 协作流程 | 角色导航、变更草稿、实施方案与验收证据 |
 | [00 边界与架构](spec-v1/00-boundaries-and-invariants.md) | 当前合同 | 组件职责与部署、agent-service具体映射及三类链路、内部L0–L3分层、不变量及授权 |
 | [01 数据模型](spec-v1/01-data-model.md) | 当前合同 | 来源、记忆、证据、版本、索引和删除 |
 | [02 API合同](spec-v1/02-api-contract.md) | 当前合同 | 参数、权限、回执、错误及首发接口切片 |

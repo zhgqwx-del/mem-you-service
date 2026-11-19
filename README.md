@@ -4,9 +4,11 @@
 
 **新手阅读或会议介绍，直接从[快速阅读与会议分享导航](docs/spec-v1/README.md#0-新手阅读与会议分享)开始**：提供20–30分钟阅读路线和15分钟分享选段。下面的调研正文适合按需追溯背景。
 
-当前整体方案与开发入口是[独立记忆服务 V1.2 修订2整体方案与开发入口](docs/spec-v1/README.md)。已结合点滴 demo、现有 agent-service 和前期调研，细化服务边界、Agent 调用时序、数据模型、API、状态机、故障恢复及评测合同。[整体审查记录](docs/spec-v1/07-v1.2-review.md)保留修订1取舍，并补记2026-10-28对必要约束、首次读取授权、擦除后有序消费、产品Outbox及验收口径的修订；A首发与B/C后置范围不变。**本轮仅交付设计文档，尚未实现服务或执行运行验收。**
+当前整体方案与开发入口是[独立记忆服务 V1.2 修订2整体方案与开发入口](docs/spec-v1/README.md)。已结合点滴 demo、现有 agent-service 和前期调研，细化服务边界、Agent 调用时序、数据模型、API、状态机、故障恢复及评测合同。[整体审查记录](docs/spec-v1/07-v1.2-review.md)保留修订1取舍，并补记2026-10-28对必要约束、首次读取授权、擦除后有序消费、产品Outbox及验收口径的修订；A首发与B/C后置范围不变。**独立 MemoryService 仍处于规格阶段，服务实现和运行验收待完成。**
 
-在其他电脑继续工作，请从[跨电脑开发交接说明](docs/cross-computer-handoff.md)开始，并使用[完整衔接 Prompt](docs/continuation-prompt.md)。根目录[AGENTS.md](AGENTS.md)提供项目指引；交接文档区分Git内材料、外部源码/原文件和待建立的运行环境。
+换电脑时按[开发交接说明](docs/cross-computer-handoff.md)克隆并用 Codex 打开仓库根目录，再把[接续 Prompt](docs/continuation-prompt.md)发给新聊天。交接说明也列出按需准备的外部源码、私密配置和运行环境。
+
+起草需求、安排实施和记录验收时，从 [STDD/SDD 项目入口](docs/stdd/project.md)进入四个角色共用的变更目录。
 
 独立服务保存有来源、有版本、可撤回的记忆与来源镜像，向获授权 Agent 提供预算化上下文和取证。正式记录、完整产品时间线和精确统计归产品后端；记忆服务不形成第二份业务台账。点滴产品每次发送进入通用记录 Agent，由内部可信 MemoryAdapter 决定是否使用历史；需要时在首轮模型前准备上下文，模型按需用工具补查；其他 Agent 可经 API、MCP、Hook 或插件接入，并分别声明生命周期保证。
 
@@ -144,9 +146,9 @@ REST合同以V1.2为准，区分来源/记忆、context、取证、更正、删�
 
 ### 6.3 与现有 agent-runner 接入
 
-目标链路为“产品发送 → 通用记录Agent → Agent内可信记忆适配器 → 独立记忆服务”。需要历史或模型理解时，适配器在首次模型请求前准备context；确认且不依赖历史的快捷输入可持久skip。补查先采用HTTP受控工具，MCP包装可后置。现有[记录助手参考](/Users/zhangguoqiang/ai-workspace/claude-workspace/meetyou/agent-service/examples/record-assistant/reference.ts:124)仅作兼容接入和测试参考，尚未实现内部适配器。
+目标链路为“产品发送 → 通用记录Agent → Agent内可信记忆适配器 → 独立记忆服务”。需要历史或模型理解时，适配器在首次模型请求前准备context；确认且不依赖历史的快捷输入可持久skip。补查先采用HTTP受控工具，MCP包装可后置。现有[记录助手参考](https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/examples/record-assistant/reference.ts#L124)仅作兼容接入和测试参考，尚未实现内部适配器。
 
-现有 `memory-injection` 固定包只把配置的 prefix/append 拼入 systemPrompt，并未实现远程动态查询；模型 middleware 还约束输入 messages 不变。因此不能把现有 hook 名称理解成接入能力已经完成。[当前实现](/Users/zhangguoqiang/ai-workspace/claude-workspace/meetyou/agent-service/packages/core/src/hooks/middleware.ts:225)
+现有 `memory-injection` 固定包只把配置的 prefix/append 拼入 systemPrompt，并未实现远程动态查询；模型 middleware 还约束输入 messages 不变。因此不能把现有 hook 名称理解成接入能力已经完成。[已核对的实现](https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/hooks/middleware.ts#L226)
 
 独立服务不绑定runtime contextEpoch。动态记忆使用版本、连续水位及两类bundle；删除/撤权须处理工具历史、原消息恢复抑制和会话副本。合同见[V1.2 API](docs/spec-v1/02-api-contract.md)与[Agent时序及恢复](docs/spec-v1/03-agent-sequences-and-recovery.md)。
 

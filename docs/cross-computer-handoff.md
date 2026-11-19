@@ -1,59 +1,62 @@
 # 跨电脑开发交接说明
 
-最近核对日期：2026-11-18（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Agent记忆Hook与时序梳理见第28节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节，Hook地图复核与Git交付见第31节，Hindsight专项评估见第32节，Hindsight复核与Git交付见第33节，Hindsight架构说明与两份Handbook见第34节，Hindsight Handbook复核与Git交付见第35节，Mem0检索/写入决策、AgentLoop接入及复核交付见第36节，Hindsight生产部署、多实例配置及复核交付见第37节，Hindsight召回/写入决策、AgentLoop接入及复核交付见第38节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期为 2026-11-19（America/Los_Angeles）。换电脑时按第 1–7 节上手，再将[接续 Prompt](continuation-prompt.md)发给新聊天。第 8 节起是按日期保留的核查与交付记录。后续以实际 checkout 和[现行合同](spec-v1/README.md)为准。
 
 ## 1 当前到底交付了什么
 
-本仓库地址：<https://github.com/zhgqwx-del/mem-you-service>。
+**用 Git 克隆仓库，再用 Codex 打开即可核对现状和继续设计。** 当前仓库尚未交付独立 MemoryService 的可运行工程。执行 STDD 脚本、搭建服务或接入外部环境时，按相应任务准备依赖。
 
-初次编写交接时，`main` 与本地 `origin/main` 均指向 `56733d1`，工作区干净。该提交是现有设计/调研基线；这是初次交接开始时的本地引用快照。交接文件随后在 `1e0f663` 中提交，首次本机认知恢复在 `b093074` 中提交；后续设计及路径核对见第9–10节。新电脑应核对实际分支、提交与远端同步状态，不固定退回旧提交。
+2026-11-18 核查起点为干净的 `main / 6f8ced0663bdf50db608b3a45cbe79ab3259eb00`。本地 `origin/main` 和通过 `git ls-remote` 查询的 [GitHub 仓库](https://github.com/zhgqwx-del/mem-you-service) `main` 当时均指向该提交。这个 SHA 用于追溯本次核查。新电脑应使用交接时实际推送的分支和提交。
 
-| 内容 | 交接时的真实状态 |
+| 内容 | 2026-11-19 核查结果 |
 |---|---|
-| 当前设计 | V1.2 修订1，2026-10-27整体审查修订 |
-| 服务实现 | 尚未开始；没有服务源码、包管理清单/锁文件、Compose、数据库迁移或运行脚本 |
-| 本仓库运行数据 | 未发现服务数据库、聊天导出、模型文件或可恢复的运行数据；不代表原电脑其他项目没有数据 |
-| 验收 | 已定义合同与目标；尚未执行合同测试、集成、真实模型、压测或恢复演练 |
-| 已保存的项目上下文 | `docs/spec-v1/`、文档状态索引、审查记录及 `research/` |
-| 本轮交接补充 | 根目录 `AGENTS.md`、本文、完整衔接Prompt及入口链接 |
-
-**因此现在换电脑不需要先恢复一个记忆服务数据库。安装Git、拉取仓库并打开项目，即可继续设计分析；真正开始实现时再建立可重现环境。** 不应尝试运行本仓库尚不存在的 `npm install`、迁移或启动命令。
+| 当前设计 | V1.2 修订2。项目规则随根目录 `AGENTS.md` 交接，现行合同、审查及研究入口见[文档索引](README.md) |
+| STDD/SDD 协作 | 已接入 team 配置及 7 个 Codex 技能。克隆后可直接从[项目入口](stdd/project.md)接续，首个实施切片待确定 |
+| 独立 MemoryService | 尚无服务源码、依赖清单/锁文件、应用配置样例、数据库迁移、启动入口或可执行的合同测试 |
+| 第三方材料 | 已有 agent-service 接入说明，以及 Mem0 和 Hindsight 各自的单机和生产部署样例，含 Docker、Compose、环境样例、Mem0 手动检查脚本和 Hindsight 扩展初始化 SQL |
+| 本仓库运行数据 | Git 中无本服务数据库、聊天导出、模型权重或评测数据包。外部服务的实际部署及数据另按需核对 |
+| 验收证据 | 有合同用例和目标，以及既往文档、样例的静态或离线检查记录。独立服务合同测试、正式接入、真实中文质量、容量和恢复仍待执行 |
 
 ## 2 新电脑首次上手
 
-在有Git及仓库访问权限的终端执行；下面命令适用于常见终端，目录可自行选择：
+换机前在旧电脑核对 `git status --short --branch`、`git worktree list` 和 `git rev-parse HEAD`。保存需要带走的修改，把关键聊天结论补进交接文档，再提交并推送到对应分支，记下分支名和 SHA。未提交修改、stash、未推送的提交和 worktree 工作目录留在旧机。
+
+新电脑安装 Git 和 Codex，分别确认 GitHub 仓库访问权限和 Codex 登录。从准备存放项目的父目录，在 sh、zsh、Bash 或 Windows 的 Git Bash 中执行：
 
 ```sh
-git clone https://github.com/zhgqwx-del/mem-you-service.git
-cd mem-you-service
-git status --short --branch
-git log -5 --oneline
+git clone https://github.com/zhgqwx-del/mem-you-service.git &&
+  cd mem-you-service &&
+  git status --short --branch &&
+  git rev-parse HEAD &&
+  git log -5 --oneline
 ```
 
-如果已经有checkout，先检查未提交修改与分支；确认本地工作已保存后再按需 `git pull --ff-only`。不要为“衔接”执行硬重置或覆盖工作区。
+若交接在其他已推送分支，可在 clone 时加 `--branch 分支名`。核对 checkout 是否包含交接提交。如果新电脑已有 checkout，先核对当前分支并保留未提交修改。本地工作已保存且需要更新时，对正确分支执行 `git pull --ff-only`。
 
 随后：
 
-1. 在Codex中打开这份本地仓库，确保工作目录是仓库根目录。
-2. 把[完整Prompt](continuation-prompt.md)中代码块内容粘贴到新聊天，填写末尾的本次需求与可选路径。
-3. 没有具体开发任务时，使用默认的“环境与上下文核查”；它应给出可开始的工作和实际缺口。
-4. 有具体任务时直接填写，例如“实现D1基础来源合同”或“分析某个设计是否闭环”。不必先恢复全部参考项目。
+1. 在 Codex 打开本地仓库根目录，启动在本机运行的聊天。若希望隔离当前工作区，可以选 Worktree。见 [OpenAI Docs：Codex 执行环境](https://learn.chatgpt.com/docs/environments/modes)。
+2. 把[接续 Prompt](continuation-prompt.md)首个代码块粘贴到新聊天。可直接发默认的只读核查，也可把最后一行改成具体开发任务。
+3. 只为具体任务准备外部 checkout、模型或数据库。外部路径可按第 5.4 节新建 `.local/context.md`，运行条件见第 6 节。
 
 ## 3 用仓库承接项目记忆
 
-项目必需的规则和结论应随Git保存。Codex会读取项目 `AGENTS.md`；本地memories属于另一个本地状态层，不能把它当作跨电脑的唯一交接依据。见[OpenAI Docs：AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md)与[Memories](https://learn.chatgpt.com/docs/customization/memories)。
+Codex 会读取仓库的 `AGENTS.md`。Codex Memories 按机器使用本地记忆存储。需要在新机延续的聊天结论、约束和未完成事项，应整理进 Git 跟踪的项目文件。见 [OpenAI Docs：AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md)和 [Memories](https://learn.chatgpt.com/docs/customization/memories)。
 
 | 信息 | 保存位置/处理方式 |
 |---|---|
 | 每次必须遵守的项目规则 | 根目录 `AGENTS.md`，保持简短 |
 | 业务边界、协议、状态机及验收 | `docs/spec-v1/`，唯一现行合同 |
+| 变更草稿、实施方案及验收证据 | [STDD/SDD 项目入口](stdd/project.md)及 `changes/<id>/`，引用现行合同 |
+| 项目配套技能及初始化模板 | 7 个 Codex 技能与 [init-stdd 分发包](../.agents/skills/init-stdd/SKILL.md)均随仓库交接。运行脚本所需环境见[研发工作流](stdd/workflows.md#脚本) |
 | 为什么作出取舍 | 05/07审查记录及带版本的 `research/` |
 | 当前做到哪里、如何运行、尚缺什么 | 本交接说明；后续实现时及时更新 |
 | 本次准备做什么 | 新聊天Prompt的“本次需求” |
-| 新电脑本地路径 | 可选 `.local/context.md`，被Git忽略 |
-| 密钥、账号授权、私有数据 | 通过独立安全渠道恢复，不放入Prompt或Git |
+| 新电脑本地路径 | 按新机实际位置重建可选的 `.local/context.md`，该目录由 Git 忽略 |
+| Codex 个人配置 | 按需在新机恢复全局指令、自用技能、MCP 或插件授权。本仓库当前没有已跟踪的 `.codex/` 项目设置或 worktree 初始化脚本 |
+| 密钥、账号授权、私有数据 | 通过各服务的安全渠道重新配置或恢复，实际值留在私密目录，勿放入 Prompt 或 Git |
 
-Prompt能引导新会话恢复已保存的事实，不能恢复未记录的口头决定、未提交代码、未同步聊天或原电脑上的文件。不需要把整个 `~/.codex` 目录复制进项目；其中的配置、登录状态、插件和本地记忆也不属于本仓库。
+换机无需复制整个 `~/.codex`。旧聊天即使能访问，也应通过新机实际 checkout 和文件核对工作状态。见 [OpenAI Docs：本地环境](https://learn.chatgpt.com/docs/environments/local-environment)。
 
 ## 4 按什么顺序恢复设计上下文
 
@@ -81,14 +84,14 @@ Prompt能引导新会话恢复已保存的事实，不能恢复未记录的口�
 
 ## 5 哪些外部材料不会随本仓库迁移
 
-下面位置与摘要来自初次交接时2026-10-28的只读核对，原电脑状态不代表当前电脑。没有读取真实 `.env`、导出聊天或复制外部文件。本机Agent核对见第8节，最新旧设计原文复核见第9节。
+历史路径用于定位来源。本机的有效路径按第 5.4 节重建，外部代码按本次任务核对版本。本次只查文件存在性、公开样例和 Git 状态。
 
 ### 5.1 现有Agent项目：优先定位本机checkout
 
 - 仓库：<https://github.com/zhgqwx-del/agent-service>，访问权限在新电脑单独配置。
-- 已审计commit：`5d38b2cd6307aab9c8dec2c475b1bebf886d8283`。
+- 历史聊天存储审计 commit 为 `5d38b2cd6307aab9c8dec2c475b1bebf886d8283`，2026-11-02 宿主细化采用 `ca24972f6094bbf48658e60113d19112290e2544`（第 14 节）。
+- 2026-11-18 本机相邻 `../agent-service` 为干净 `main / 6870e7346d98ef193de51e8f328e1f967066da2a`。近期 [Hook 地图](handbooks/agent-memory-hook-integration.md)、[Mem0 接入](handbooks/mem0-agent-service-integration.md)和 [Hindsight 接入](handbooks/hindsight-agent-service-integration.md)采用该参考版本。新机可另行定位或 clone，仅在需要对应审计时才查固定版本。
 - 原电脑位置：`/Users/zhangguoqiang/ai-workspace/claude-workspace/meetyou/agent-service`。
-- 核对时为 `main`，HEAD与审计commit一致，工作区干净；未联网核对远端是否有更新。
 - 证据入口：[聊天存储审计](../research/chat-storage-audit.md)。
 
 2026-10-28本机映射已确认：仓库根为 `/Users/zhangguoqiang/ai-workspace/codex-workspace/agent-service`；宿主为其 `apps/agent-runner`，运行内核为 `packages/core`。本机HEAD及已有修改见第10节，不沿用原机工作区快照；非敏感路径已保存到被忽略的`.local/context.md`。
@@ -99,14 +102,14 @@ Prompt能引导新会话恢复已保存的事实，不能恢复未记录的口�
 git clone https://github.com/zhgqwx-del/agent-service.git
 git -C agent-service rev-parse HEAD
 git -C agent-service status --short --branch
-git -C agent-service cat-file -t 5d38b2cd6307aab9c8dec2c475b1bebf886d8283
+git -C agent-service cat-file -t 6870e7346d98ef193de51e8f328e1f967066da2a
 ```
 
 不要求工作项目永远停留在旧commit。版本不同应重新核对适用源码；如需复现旧审计，可在不影响当前工作的独立checkout/worktree检查固定commit。现有 `memory-injection` 只是静态prefix/append，并未交付动态MemoryAdapter。
 
 旧文档中的绝对链接映射到新项目根目录，再按相对路径和符号定位，例如 `packages/core/src/hooks/middleware.ts`、`packages/core/src/session/host.ts`、`examples/record-assistant/reference.ts`。旧行号只对应旧版本，不能机械沿用。
 
-只有实际运行该Agent项目时，才需要下面这组环境。以下来自上述固定commit的只读核查，未执行安装或启动；未来以该项目实际版本的说明为准：
+只有实际运行该 Agent 项目时才需要下面的环境。本次在 `6870e734` 复核 Node、pnpm、运维文档、部署样例和脚本入口。安装和启动步骤以 Agent 实际 checkout 为准。
 
 | 项目 | 已确认入口/要求 |
 |---|---|
@@ -130,7 +133,7 @@ git -C agent-service cat-file -t 5d38b2cd6307aab9c8dec2c475b1bebf886d8283
 
 只有复核产品原型或历史推导才需要另行传输这些文件。普通设计分析和独立服务开发可先用已保存的审计结论，缺原文件时明确“未重新核对原始材料”。demo含演示/mock数据，不是真实聊天导出或正式评测金标准。
 
-初次交接时原文件仍在原目录，未为其建立备份；本机初次认知核查未找到这两个原路径。后续按用户指引找到桌面RTF，抽出的旧设计纯文与上表摘要一致，详见第9节；demo原文件仍未恢复。需要保留的原始材料应通过你认可的文件传输/备份渠道另行保存；收到后校验SHA-256。macOS可用 `shasum -a 256 <文件路径>`，Linux可用 `sha256sum <文件路径>`，PowerShell可用 `Get-FileHash -Algorithm SHA256 <文件路径>`，按实际路径加引号。
+此前曾找到桌面 RTF，抽出的旧设计纯文与上表摘要一致，见第 9 节。2026-11-18 在记录的三个路径均未找到对应原件。需要复核时可另行取得并校验 SHA-256。macOS 可用 `shasum -a 256 <文件路径>`，Linux 可用 `sha256sum <文件路径>`，PowerShell 可用 `Get-FileHash -Algorithm SHA256 <文件路径>`，按实际路径加引号。
 
 ### 5.3 开源研究快照：按需重新取得
 
@@ -138,7 +141,7 @@ git -C agent-service cat-file -t 5d38b2cd6307aab9c8dec2c475b1bebf886d8283
 
 ### 5.4 可选的本地路径映射
 
-在新电脑建立 `.local/context.md`，例如下面内容；它仅记录路径和非敏感状态，不需要执行或source：
+本机已有被忽略的 `.local/context.md`，本次仅核对存在性和 Git 忽略规则。新电脑按需新建，只填写非敏感路径和状态。此文件是说明文档，无需执行。
 
 ```text
 MEM_YOU_ROOT: <本仓库绝对路径>
@@ -149,10 +152,12 @@ AGENT_SERVICE_HEAD: <实际git rev-parse HEAD结果>
 DEMO_HTML: <HTML路径；可缺失>
 LEGACY_DESIGN_MD: <旧设计路径；可缺失>
 LEGACY_DESIGN_RTF: <同内容RTF路径；可缺失，提取后校验文本摘要>
+MEM0_SOURCE_ROOT: <仅做 Mem0 实验时填固定源码 checkout 路径>
+HINDSIGHT_SOURCE_ROOT: <仅做 Hindsight 实验时填固定源码 checkout 路径>
 LOCAL_SERVICE_STATE: <尚无实现 / 已建立本地开发环境>
 ```
 
-这些是交接字段名，当前不是应用已经支持的环境变量。不要把密码、token、真实连接串填进去。
+这些字段供人工和 Codex 定位，应用无需读取。密码、token、私有连接串和备份留在仓库外或合适的私密目录。若必须放在某个 checkout 内，按该项目手册配置本地忽略，并用 `git check-ignore -v` 核对路径。本仓库会忽略 `.local/`、`.env` 和 `.env.*`（保留 `.env.example`），普通 `runtime.env`、`migration.env`、密码文件或私钥名需要额外核对。
 
 ## 6 环境与数据什么时候需要补齐
 
@@ -161,12 +166,14 @@ LOCAL_SERVICE_STATE: <尚无实现 / 已建立本地开发环境>
 | 继续设计分析 | 本仓库、Git、编辑器/开发助手 | 无需数据库或模型key |
 | 从零实现服务D1 | 依据当前合同建立工程，冻结运行时/包管理器/数据库版本；补依赖锁、迁移、无密钥配置样例和启动/测试说明 | 先完成本地确定性合同测试和受控依赖 |
 | 现有Agent源码集成 | 定位本机checkout或另拉agent-service，读其自身AGENTS/README及实际manifest，按新版本核对审计 | 缺项目时可开发明确标记的接口夹具；不能宣称真实集成完成 |
+| Mem0 独立实验 | [单机手册](handbooks/mem0-self-hosted-deployment.md)固定 Mem0 OSS 2.2.1（`f1791daa`）。准备 Docker + Compose 和 Python 3.10+，复制样例到单独上游 checkout 的部署目录，按手册准备私有配置和持久目录 | 可先只读研究或核对样例。需要远程中间件时另读[生产手册](handbooks/mem0-production-deployment.md) |
+| Hindsight 独立实验 | [单机手册](handbooks/hindsight-self-hosted-deployment.md)固定 API-slim 1.2.1（`b92ceb1`）。准备 Docker + Compose、Python 3、curl 及模型资源，复制样例到独立上游 checkout，按手册配置 PostgreSQL 扩展和模型 | 可先只读研究或核对样例。需要远程中间件和 API/worker 分离时另读[生产手册](handbooks/hindsight-production-deployment.md) |
 | 聊天补采B | 获授权开发MySQL、Adapter与生命周期控制能力、脱敏样本及任务预算 | 做preview/隔离测试；不能绕过稳定身份/分页/删除前置 |
 | 中文效果或容量验收D4 | 版本化数据集/金标准、真实模型及预算、固定硬件和结果报告 | 先设计或运行已具备条件的确定性用例；缺项明确记录 |
 
 本服务设计基线为API/worker、PostgreSQL与可重建检索视图，队列可先用同库任务表。04定义的词法基线是jieba搜索模式与BM25，dense对照是BGE-M3 1024维归一化dense表示；它们是待落地、需固定版本的基线，不是本机已经安装的依赖。运行时与精确工具版本要在首个实现中确定，不应凭交接文档虚构。
 
-当前没有需要从本仓库恢复的真实数据库。实现测试可从04的固定场景建立合成/授权脱敏fixture，明确其性质；不能把文档中的100条时间线、600测试turn或12万容量语料目标说成已有数据集。
+当前没有需要从本仓库恢复的真实数据库。实现测试可从 04 的固定场景建立合成或获授权的脱敏 fixture。已有外部部署确实要续用旧数据时，按所用服务的恢复手册交接数据库、持久目录及私密配置。Mem0 还要纳入 SQLite history/messages，运行 Agent 则要按其说明协调数据库、Blob 和解密配置。
 
 以后出现运行数据时，换机交接必须同时补齐数据库版本/扩展与迁移、配置键及安全配置渠道、数据导出/恢复方法、数据摘要、fixture生成方法和实际验证记录。需要延续既有数据时，来源/版本、journal/回执、授权/删除控制日志及恢复门禁必须协调恢复；向量/摘要等派生可按合同重建，但不能只恢复旧主库导致已删除内容复活。
 
@@ -764,3 +771,28 @@ git diff --check
 - 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，提交前分叉为0/0。交付限定Hindsight接入Handbook、根README、docs索引和本文4份Markdown；暂存后核对完整文件集合、字节与空白，按授权正常提交并推送main，不强推。最终SHA和远端同步以实际Git与本轮回执核对。
 
 第38节“补充编写阶段未提交”是此前快照，本小节记录后继复核与Git交付。本轮未修改服务代码、部署样例、现行合同或外部agent-service，也未部署、运行产品测试或调用真实模型；动态接入、中文质量、费用、恢复及full_lifecycle仍待实施验收。
+
+## 39 2026-11-18 换机上手流程核对
+
+本轮更新了上手步骤、项目记忆和本地配置清单、可直接粘贴的首次接续 Prompt，并同步两级入口及根 `AGENTS.md`。实际执行 Git 工作区、分支、文件和忽略规则核对，使用 `git ls-remote --exit-code origin refs/heads/main` 确认 GitHub 提交，另查了相邻 agent-service 的固定版本和只读初始化入口。
+
+实际通过 `git diff --check`、5 份改动文档的相对文件目标与代码围栏检查、克隆示例的 `sh -n` 检查，以及从本地 Git 仓库临时克隆后核对 SHA、交接入口、配置样例和 `.local/` 缺省状态。本次文档更新尚未提交或推送。当前 shell 无 Docker CLI，本轮仅做文档与环境核查，安装、服务启动和运行验收均未执行。
+
+## 40 2026-11-18 STDD/SDD 接入
+
+从 `main / 6f8ced0663bdf50db608b3a45cbe79ab3259eb00` 接入，保留已有未提交的交接文档修改与 `.agents/skills/init-stdd/`。使用本地 Python 3.12.16 和项目自带技能，选择 `team + codex`。预览列出 35 项新增、2 项保留。
+
+- 默认沙盒限制写入 `.agents/skills/`。通过限定范围的 `--skills-only --agent codex` 安装 7 个配套技能，再用 `--profile team --agent codex` 完成其余 28 个文件的生成。重复预览无待新增文件。
+- 从[项目入口](stdd/project.md)进入四个角色的协作模板和[首个变更草稿](../changes/001-first-slice/change.md)。现行合同统一在 [spec-v1](spec-v1/README.md)。04 的 D1「合同与基础来源」是候选，实施目标、范围及技术方案待确定。
+- 实际执行 `git diff --check`、Markdown 导航及合同链接检查，并核对了合同、第三方手册和研究目录的 Git 差异。用 `python3 -B scripts/git_range.py HEAD~1 HEAD` 验证本地提交范围，在临时目录运行 `new_change.py` 验证七份变更文档生成及重复 ID 拒绝。默认 `check_traceability.py` 报告零项，因为它读取 `specs/**/spec.md` 格式。项目验收按 04 的场景与实际测试证据记录。
+
+本轮交付为本地未提交的协作配置和文档。独立 MemoryService 的工程、运行命令与合同测试仍待建立，服务验收待运行。
+
+### 40.1 2026-11-19 STDD/SDD 与换机交接复核
+
+第 39–40 节的未提交状态是整理阶段快照。此轮交付范围为本地 `init-stdd` 分发包、已安装的配套技能、项目协作骨架及换机交接文档。交接时以包含本节的提交和 GitHub `main` 的实际状态为准。
+
+- 接续 Prompt 的长短版补齐 STDD 入口，研发工作流记录脚手架的 Python 版本要求。根 README 的两处原电脑源码链接改指已核对的 agent-service 固定提交。换机时可从仓库中的项目入口和技能继续。
+- 本地复核了 89 份交付文件。Markdown 仓内链接、标题锚点和代码围栏、Python 3.9 语法兼容检查、克隆示例的 `sh -n` 及 `git diff --check` 通过。已安装技能和脚本与分发包对应模板逐字节一致。
+- 在临时目录验证 `spec`、`team + codex`、`demo` 生成和重跑、保留已有文件、变更文档生成及拒绝重复 ID。仅在教学示例目录执行 `make check`，4 个教学用例通过。MemoryService 的验收证据按 04 记录，D1 仍为待确认候选，服务验收待执行。
+- 提交前执行 `git -c http.proxy= -c https.proxy= fetch --no-tags origin main`，基线相对远端分叉为 0/0。提交目标为 `origin/main`。
