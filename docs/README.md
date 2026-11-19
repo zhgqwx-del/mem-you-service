@@ -1,6 +1,6 @@
 # 文档状态与开发依据
 
-更新日期：2026年11月16日。当前设计版本：V1.2 修订2，目录沿用`spec-v1`；2026-10-28已补充分层和研究诊断，并修正约束完整性、授权/有序消费及验收边界。2026-10-30增加概念、端到端时序及既有验收映射；2026-11-02按agent-service实际源码细化逻辑架构、Host/应用接入、来源及使用控制链、确定性路径与验收变体。沿用Memory API/schema、检索模型/RRF参数、数值SLO及A/B/C范围，仍无服务实现或真实集成验收。
+更新日期：2026年11月18日。当前设计版本：V1.2 修订2，目录沿用`spec-v1`；2026-10-28已补充分层和研究诊断，并修正约束完整性、授权/有序消费及验收边界。2026-10-30增加概念、端到端时序及既有验收映射；2026-11-02按agent-service实际源码细化逻辑架构、Host/应用接入、来源及使用控制链、确定性路径与验收变体。沿用Memory API/schema、检索模型/RRF参数、数值SLO及A/B/C范围，仍无服务实现或真实集成验收。
 
 2026-11-08新增[Anthropic Agent Memory设计评估](../research/anthropic-agent-memory-review.md)，随后按授权将写入策略可选对照、后台维护成本及摊销口径补入04，在06中明确定向派生复核属于C并同步既有验收变体。继续采用修订2，API、数据模型、首发A及现有数值门槛不变；未启用扩展不成为首发前置。
 
@@ -19,6 +19,8 @@
 2026-11-15新增[agent-service记忆接入Hook与时序地图](handbooks/agent-memory-hook-integration.md)，按现行合同和agent-service固定`6870e734`核对读取、来源写入、记忆修订、业务更正、交付及失效接点，附每轮接口计数和两张完整时序图；2026-11-16复核并澄清fence关闭条件、计数前提及更正前validate顺序。它是说明性接入地图，不新增公共协议或实现能力。
 
 2026-11-16新增[Hindsight专项调研与现行方案评估](../research/hindsight-design-review.md)，固定`b92ceb1`、API-slim 1.2.1，补核自动归纳/更新、派生新鲜度、时间范围召回、中文配置、幂等/删除及服务端scope扩展。建议优先借鉴writer与任务实现、诊断和公平对照；现行合同、检索基线、首发范围及数值门槛不变，未部署或调用真实模型。
+
+2026-11-18新增[Hindsight开源自部署Handbook](handbooks/hindsight-self-hosted-deployment.md)和[agent-service接入Handbook](handbooks/hindsight-agent-service-integration.md)，并在研究中补核心架构理念。沿用固定Hindsight 1.2.1及重新核对的agent-service源码，说明配置、操作、调用流程、PoC与正式接入的待开发边界；文档与部署样例不构成已完成部署或服务实现。
 
 **整体方案从[V1整体方案与开发入口](spec-v1/README.md)开始；核心使用00–04，持久聊天接入另执行06，不使用下面两份历史方案的接口草案。**
 

@@ -25,6 +25,8 @@
 | [七个 Agent 和 Harness 的实现研究](research/agent-systems-notes.md) | OpenCode、OpenClaw、Hermes、DeepSeek Harness、Codex、Harness²、OpenHarness 的读写触发、存储检索及源码入口 |
 | [开源记忆框架研究](research/memory-frameworks-notes.md) | MemGPT 与当前 Letta、Mem0、LangGraph/LangMem、Graphiti/Zep、Hindsight 的架构、边界和选型 |
 | [Hindsight专项调研与设计评估](research/hindsight-design-review.md) | 2026-11-16固定1.2.1源码，核对学习/更新、归纳新鲜度、时间召回及生命周期；提出实现与对照建议，未改现行合同 |
+| [Hindsight开源自部署Handbook](docs/handbooks/hindsight-self-hosted-deployment.md) | 固定源码、API/界面与PostgreSQL、中文模型/检索、配置及手动检查步骤；尚未实际部署 |
+| [agent-service接入Hindsight Handbook](docs/handbooks/hindsight-agent-service-integration.md) | 可信身份映射、合成PoC、读写/更新流程及Runtime正式接入待开发边界 |
 | [Mem0专项调研](research/mem0-focused-research.md) | 2026-11-13固定源码核对OSS/Platform、部署与API、自研Agent、Pi、OpenCode V1/V2及DeepSeek Harness接入，含鉴权和擦除边界 |
 | [Mem0自托管部署Handbook](docs/handbooks/mem0-self-hosted-deployment.md) | 固定源码镜像、独立Compose模板、私有配置、初始化、检查及备份步骤 |
 | [Mem0生产环境部署Handbook](docs/handbooks/mem0-production-deployment.md) | 远程PostgreSQL／模型服务、独立迁移与生产运维；区分原版SQLite例外、全部数据库远程化及多实例待开发改造 |

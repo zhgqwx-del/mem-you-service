@@ -2,6 +2,8 @@
 
 核查日期：2026-11-16（America/Los_Angeles）。本项目基线为 `main / 547c659fd6be3af97d59292b7fa83cbd7fe2103b`、V1.2修订2；Hindsight固定源码为 [`b92ceb180e349a456d2b5454575067b6ff0f6306`](https://github.com/vectorize-io/hindsight/tree/b92ceb180e349a456d2b5454575067b6ff0f6306)，`hindsight-api-slim` 1.2.1、MIT许可。公开源码只读下载至临时目录，未安装、启动或调用模型。[版本与依赖][package]、[许可证][license]。
 
+2026-11-18补充§1.1–1.2的核心架构理念与组件关系，并增加[开源自部署Handbook](../docs/handbooks/hindsight-self-hosted-deployment.md)和[agent-service接入Handbook](../docs/handbooks/hindsight-agent-service-integration.md)。手册继续采用上述固定版本，操作命令供后续执行；本轮不实际部署或开发服务。
+
 **Hindsight有较高参考价值，适合优先作为完整派生记忆引擎的对照；目前没有证据要求替换本项目架构或修改首发合同。** 最值得借鉴的是具体的抽取与更新规则、归纳的新鲜度处理、时间范围召回，以及按处理阶段组织的真实模型评测。当前缺口主要在可执行实现和效果证据，不能把合同已经写明的能力再次列成设计缺失。
 
 本仓此前已在[框架研究](memory-frameworks-notes.md)核对Hindsight 1.1.0，并在[04§6.1](../docs/spec-v1/04-evaluation-and-acceptance.md#61-对照组)列为可选对照。本次补核1.2.1；旧研究保留其版本语境。本报告只提出候选优化，同步研究入口与交接，不修改现行API、schema、检索基线、数值门槛或A/B/C范围。
@@ -21,6 +23,46 @@ Hindsight的主要运行机制是**外部记忆随新证据演化**。模型从�
 依据：[retain][retain]、[检索][retrieval]、[mental models][mental]、[reflect][reflect]。当前`Document.original_text`和事实的`document_id`、`occurred_start/end`、`mentioned_at`可在[数据模型][models]核对；原始正文默认保存，`store_document_text`可关闭，不能因首页强调“抽取事实”就断言它不保留原始文档。[正文配置][config]。
 
 两个分类容易误用。`world`指关于外部世界的陈述，用户说“我头痛”属于关于用户的world fact；`experience`指bank所属Agent自己的经历。它们区分视角，**不证明陈述客观为真**，也不替代本项目的用户自述、正式回执、推断及确认等级。论文2025年12月的四网络包含opinion/belief表述；当前接口以world、experience、observation等组织记忆，并另有mental models/pages，不宜拿论文类型原样描述当前接口。[retain分类][retain]、[原始论文](https://arxiv.org/abs/2512.12818)。
+
+### 1.1 核心架构理念
+
+Hindsight把记忆视为一个**可持续积累、更新并参与推理的外部知识状态**。保存聊天是输入环节，系统还要解决同一主体的信息如何连接、较早和较新陈述如何区分、哪些内容值得合并，以及本次问题应读取哪些依据。因此它既有面向写入的知识构建，也有面向读取的证据检索与可选推理。[架构概览][overview]。
+
+| 设计选择 | 为什么这样做 | 使用时的含义 |
+|---|---|---|
+| 分开事实陈述与归纳观察 | 一次披露与多次证据形成的概括具有不同来源和更新过程 | 归纳保留支持；重复数量不能自动变成客观真值 |
+| 为事实补实体、时间及联系 | 相同问题可能依赖字面、语义、关系或时间，单条向量无法覆盖全部路径 | 写入会做抽取与索引建设，读取采用多路召回；图是系统内部关系表示，不要求另部署图数据库 |
+| retain、recall、reflect分别提供接口 | 写入、找证据和形成回答的成本及控制需求不同 | 自有Agent可只用retain/recall，让主Agent负责回答；reflect单独启用 |
+| 后台巩固并预计算常用主题 | 同样的事实和问题反复出现时，每次重做归纳成本高 | observations与mental models/pages按范围维护；刷新期间仍需关注来源和归纳是否落后 |
+| 先融合候选，再按阅读预算组织 | 不同通道评分不可直接比较，模型可读上下文也有限 | RRF、重排及token预算分别处理排序与交付量，不把top-k当完整历史 |
+| 用bank组织长期状态 | 同一用户/Agent跨会话复用记忆，又能有各自的任务配置 | bank不能每轮随机创建，也不能仅凭bank名称证明业务权限 |
+
+这是“会学习”的主要来源：**外部事实、观察和主题内容随新证据变化，后续Agent行为因读到这些内容而变化。** 模型负责语义抽取与生成，程序组织任务、引用、时间比较和持久化；可选decision model分流部分判断。它并未因此承诺在线训练主模型、自动感知现实变化，或把业务执行结果变成权威回执。[抽取][retain]、[多路检索][retrieval]、[观察规则][prompts]、[主题模型][mental]。
+
+### 1.2 数据处理与运行组件
+
+```mermaid
+flowchart LR
+    I["获授权输入文档"] --> T["retain：抽取与索引"]
+    T --> F["事实、实体、时间及联系"]
+    F --> Q["recall：多路召回与预算"]
+    Q --> A["外部主Agent使用证据"]
+    F --> W["后台巩固"]
+    W --> O["有支持的observations"]
+    O --> Q
+    O --> P["按需维护主题文档"]
+    F --> P
+    F --> R["reflect：可选检索<br/>与推理循环"]
+    O --> R
+    P --> R
+    R --> X["带引用的回答"]
+```
+
+图表示职责及主要数据关系，不要求每次写入先生成主题文档，也不保证每次recall只返回原始事实；类型、chunks和支持事实的返回取决于请求配置。reflect通常按主题、观察、事实逐层找证据，可选decision-model编排会改变检索形态；它与调用方自己的主Agent是两次不同的推理职责。[Recall API][recall-api]、[Reflect机制][reflect]。
+
+运行组件主要是API、worker、PostgreSQL及可选Control Plane界面。API对外提供读写，后台任务使用PostgreSQL持久队列；小型部署可让API同时运行内置worker，需要独立扩容时再拆出worker。关系、全文和向量等默认可保存在同一PostgreSQL体系中；模型服务负责抽取、embedding、重排及启用的生成。Control Plane用于管理和检查bank，不是本项目的授权控制面或独立删除ledger。[运行服务][services]。
+
+“服务自托管”和“模型本地推理”是两项选择。自托管API和数据库仍可以调用外部模型；采用本地模型时需准备权重、缓存、计算资源及对应配置。实际部署还应区分数据库、模型缓存和可选附件/日志的持久化，不能从逻辑组件图推导所有副本都已纳入备份与擦除。配置及操作见两份Handbook。
 
 ## 2 自动更新的价值与边界
 
@@ -149,6 +191,9 @@ Hindsight将父子任务原子入库，worker以锁和串行键协调执行；�
 本次最值得优化的是**把已有正确约束做成可运行、可诊断、可比较的流程**。保留Hindsight作为候选内部引擎；在中文效果、总成本和生命周期对照之前，不直接决定迁入它、不改变正式记录归属，也不增加每轮reflect或全库后台巩固。
 
 [package]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/pyproject.toml
+[overview]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-docs/docs/developer/index.mdx
+[services]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-docs/docs/developer/services.md
+[recall-api]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-docs/docs/developer/api/recall.mdx
 [license]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/LICENSE
 [models]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/models.py#L104
 [config]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/config.py#L2094

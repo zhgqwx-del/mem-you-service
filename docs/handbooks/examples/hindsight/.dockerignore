@@ -1,0 +1,3 @@
+# The wrapper only needs its Dockerfile and the already-built local base image.
+**
+!Dockerfile

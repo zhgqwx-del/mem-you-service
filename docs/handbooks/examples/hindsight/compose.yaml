@@ -1,0 +1,75 @@
+name: ${HINDSIGHT_COMPOSE_PROJECT:-hindsight-handbook}
+
+services:
+  db:
+    image: hindsight-handbook-pg:pg17-pgroonga4.0.8
+    build:
+      context: ../docker/docker-compose/pgroonga
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hindsight_lab
+      POSTGRES_DB: hindsight_lab
+      POSTGRES_PASSWORD: ${HINDSIGHT_DB_PASSWORD:?Set HINDSIGHT_DB_PASSWORD in the private .env}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./init-extensions.sql:/docker-entrypoint-initdb.d/10-hindsight-extensions.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  hindsight:
+    image: hindsight-handbook:b92ceb1
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    stop_grace_period: 75s
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:18889:8888"
+      - "127.0.0.1:19999:9999"
+    environment:
+      HINDSIGHT_API_DATABASE_URL: postgresql://hindsight_lab:${HINDSIGHT_DB_PASSWORD:?Set HINDSIGHT_DB_PASSWORD in the private .env}@db:5432/hindsight_lab
+      HINDSIGHT_API_DATABASE_SCHEMA: public
+      HINDSIGHT_API_VECTOR_EXTENSION: pgvector
+      HINDSIGHT_API_TEXT_SEARCH_EXTENSION: pgroonga
+      HINDSIGHT_API_RUN_MIGRATIONS_ON_STARTUP: "true"
+      HINDSIGHT_API_WORKER_ENABLED: "true"
+      HINDSIGHT_API_WORKER_ID: hindsight-handbook-1
+      HINDSIGHT_API_TENANT_EXTENSION: hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension
+      HINDSIGHT_API_TENANT_API_KEY: ${HINDSIGHT_API_TENANT_API_KEY:?Set the self-hosted API key}
+      HINDSIGHT_API_TENANT_MCP_AUTH_DISABLED: "false"
+      HINDSIGHT_API_LLM_PROVIDER: openai
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_API_LLM_MODEL:-gpt-5-mini}
+      HINDSIGHT_API_LLM_API_KEY: ${HINDSIGHT_API_LLM_API_KEY:?Set the model provider key}
+      HINDSIGHT_API_SKIP_LLM_VERIFICATION: "true"
+      HINDSIGHT_API_MODEL_INIT_TIMEOUT: "1800"
+      HINDSIGHT_API_EMBEDDINGS_PROVIDER: local
+      HINDSIGHT_API_EMBEDDINGS_LOCAL_MODEL: BAAI/bge-m3
+      HINDSIGHT_API_EMBEDDINGS_LOCAL_FORCE_CPU: "true"
+      HINDSIGHT_API_EMBEDDINGS_LOCAL_MAX_CONCURRENT: "1"
+      HINDSIGHT_API_RERANKER_PROVIDER: local
+      HINDSIGHT_API_RERANKER_LOCAL_MODEL: hindsight-ai/hs-rerank-1
+      HINDSIGHT_API_RERANKER_LOCAL_FORCE_CPU: "true"
+      HINDSIGHT_API_RERANKER_LOCAL_MAX_CONCURRENT: "1"
+      HINDSIGHT_API_DECISION_MODEL_PROVIDER: none
+      HINDSIGHT_API_MCP_ENABLED_TOOLS: recall
+      HINDSIGHT_API_ENABLE_OBSERVATIONS: "false"
+      HINDSIGHT_API_ENABLE_AUTO_CONSOLIDATION: "false"
+      HINDSIGHT_API_FILE_STORAGE_TYPE: native
+      HINDSIGHT_API_ENABLE_FILE_UPLOAD_API: "false"
+      HINDSIGHT_API_STORE_DOCUMENT_TEXT: "true"
+      HINDSIGHT_CP_DATAPLANE_API_URL: http://127.0.0.1:8888
+      HINDSIGHT_CP_DATAPLANE_API_KEY: ${HINDSIGHT_API_TENANT_API_KEY:?Set the self-hosted API key}
+      HF_HOME: /home/hindsight/.cache/huggingface
+    volumes:
+      - model_cache:/home/hindsight/.cache/huggingface
+
+volumes:
+  pg_data:
+  model_cache:

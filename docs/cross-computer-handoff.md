@@ -1,6 +1,6 @@
 # 跨电脑开发交接说明
 
-最近核对日期：2026-11-16（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Agent记忆Hook与时序梳理见第28节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节，Hook地图复核与Git交付见第31节，Hindsight专项评估见第32节，Hindsight复核与Git交付见第33节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期：2026-11-18（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Agent记忆Hook与时序梳理见第28节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节，Hook地图复核与Git交付见第31节，Hindsight专项评估见第32节，Hindsight复核与Git交付见第33节，Hindsight架构说明与两份Handbook见第34节，Hindsight Handbook复核与Git交付见第35节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
 
 ## 1 当前到底交付了什么
 
@@ -655,3 +655,28 @@ git diff --check
 - 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，提交前 `git rev-list --left-right --count HEAD...origin/main` 为0/0。交付范围限定根README、docs索引、本文及Hindsight专项评估4份Markdown；暂存后另核文件集合、内容与空白检查，按用户授权正常提交并推送main，不强推。包含本节的提交及最终远端同步以实际Git命令和历史核对，不预写自身commit。
 
 第32节“未提交/推送”是研究阶段快照，本节为后继复核及Git交付记录。此次只交付研究文档，未开发/部署服务、安装依赖、调用真实模型或改动外部agent-service；现行API、schema、A/B/C、检索基线、数值门槛和验收矩阵均保持。真实中文效果、集成、容量、费用及恢复验收仍待后续按明确范围执行。
+
+
+## 34 2026-11-18 Hindsight架构说明 自部署与宿主接入Handbook
+
+用户要求说明Hindsight核心方案/架构理念，并参考Mem0方式形成自部署和现有agent-service接入两份手册，暂不实际部署或开发服务。起点为干净 `main / 62c5f297f249e79279fd1184d94ef01cb74292df`；未fetch/pull本仓，不据本地origin引用判断远端当前状态。
+
+- 新增 [Hindsight自部署Handbook](handbooks/hindsight-self-hosted-deployment.md) 与 [agent-service接入Handbook](handbooks/hindsight-agent-service-integration.md)，附5份无密钥部署模板（Compose、薄包装Dockerfile、环境样例、包装构建排除项及扩展初始化SQL）。研究补§1.1–1.2核心理念、数据处理图与运行组件，两级入口同步；现行spec-v1合同未改。
+- 沿用固定Hindsight `b92ceb180e349a456d2b5454575067b6ff0f6306`、API/TS客户端1.2.1，并浏览官方安装/服务/操作资料。源码与官网概述不一致处以固定实现说明。外仓agent-service重新只读核对仍为干净 `main / 6870e7346d98ef193de51e8f328e1f967066da2a`，未读真实配置或修改外仓。
+- 部署主线为固定源码构建standalone、独立PG17+pgvector+PGroonga、中文BGE-M3与hs-rerank、本机18889/19999和共享Bearer key；关闭初始归纳、显式跳过默认启动LLM验证，真实retain/归纳/reflect及模型探测另列费用。附未知结果、文档/操作payload残留、持久化、停写备份及全新project中仅数据库封闭恢复步骤，拒绝已有恢复卷；不把模板称为已验收生产或HA方案。
+- 接入区分可信App合成POC、正式Runtime待开发路线及工具/MCP；说明稳定owner-bank、原输入与合成input分离、异步UUID/body冻结、跨session读取、防回声、更新/删除及所有Host副本清理边界。时序图明确工具前validate、稳定action/fence、同事件Outbox连续应用及独立消费者ACK；Hindsight操作完成不能替代本项目applied/屏障或完整遗忘。
+- 主审及独立复核覆盖固定接口、配置、宿主/合同和架构语义。修正畸形JSON错误可能回显正文、默认启动付费探测、无效bank读取路径、bank创建字段与配置覆盖边界及恢复前置失败后继续执行等问题。实际执行 `PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/hindsight-handbooks-check.py`、Ruby YAML及模板断言、shell/JavaScript/嵌入Python语法与inline JSON检查、`git diff --check`及spec-v1保护核对。3张新增Mermaid图经临时独立无头浏览器解析/渲染并查看；浏览器阻断网络，不访问服务或使用现有profile。首次渲染受沙箱限制SIGABRT，随后经自动审查允许完成；临时检查器和图片不纳入Git。
+
+本轮11份文件新增或修改，保留本地，未提交或推送。当前shell仍无Docker CLI，未执行Compose配置展开/构建/启动、数据库初始化/恢复、SDK安装或真实API/模型调用；未开发本项目服务或外部Runtime。文档静态通过不代表真实部署、中文效果、费用、并发/删除或full_lifecycle验收；后续按明确环境/预算与D1–D4继续，手册中的命令仅供后续实施。
+
+
+## 35 2026-11-18 Hindsight Handbook整体复核与Git交付
+
+用户明确授权整体检查两份Hindsight Handbook、部署模板及相关文档，修正后提交并推送GitHub，暂不实际部署或开发服务。起点为 `main / 62c5f297f249e79279fd1184d94ef01cb74292df`，继承第34节的11份本地文档/样例变更，没有其他工作区修改。
+
+- 主审与三路独立只读复核覆盖部署步骤/模板、固定REST/SDK、agent-service真实宿主及现行合同、架构图和入口/交接一致性。Hindsight仍固定b92ceb1、API/TS 1.2.1；外仓只读核对仍为干净6870e734，未修改外仓或读取真实配置。现行spec-v1、A/B/C、D1–D4、API/schema、检索基线及数值门槛均保持。
+- 修正准备目录失败后仍checkout/复制、构建失败后仍启动旧tag、一次性请求创建失败后仍发送旧文件三类控制流；读operation的步骤独立于发送，unknown只核原UUID。首次安装明确新目录不等于新数据库，拒绝同名project容器/卷及相关宿主环境/Compose控制变量覆盖；已有实例必须使用原配置恢复。修正后的增量经独立复核，未发现剩余文档提交阻断问题。
+- 实际执行 `PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/hindsight-handbooks-check.py`、`PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/hindsight-handbooks-guard-check.py`、YAML/模板静态断言及 `git diff --check`、spec-v1保护检查。全仓36份Markdown的相对链接/锚点、围栏、JSON和固定源码引用检查通过；手册shell、JavaScript、嵌入Python及inline JSON语法通过。11个离线合成保护场景验证目录/旧请求拒绝、同名容器或卷、配置覆盖、构建失败和发送未知后的只读核对，Docker/Git/curl均由临时替身命令代替，未连接真实服务。3张新增图的实际渲染/查看沿用第34节，相关图未在本轮修改；临时脚本和图片不纳入Git。
+- 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，提交前分叉为0/0。交付限定两份Hindsight Handbook、5份部署模板、研究架构补充、根README、docs索引和本文共11份文件；暂存后再核文件集合、内容及空白检查，按本次授权正常提交并推送main，不强推。包含本节的提交及最终远端同步以实际Git命令和历史核对，不预写自身commit。
+
+第34节“保留本地、未提交推送”是编写阶段快照，本节记录后继复核与Git交付。当前shell无Docker CLI，未执行真实Compose配置展开、镜像构建/部署、数据库初始化/恢复、模型调用或Runtime开发；静态与离线合成检查不构成真实部署、中文质量、费用、容量/恢复或full_lifecycle验收。
