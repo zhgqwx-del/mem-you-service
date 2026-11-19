@@ -6,6 +6,8 @@
 
 主线为**固定源码构建API与Control Plane，独立PostgreSQL 17＋pgvector＋PGroonga，中文本地embedding和reranker，抽取调用远程OpenAI模型**。这是一套单机实验模板，尚未经过Docker构建或真实联调。接入自研宿主见[agent-service接入Handbook](hindsight-agent-service-integration.md)；架构理念与现行方案取舍见[专项研究](../../research/hindsight-design-review.md)。
 
+远程数据库、API/worker分离及多实例运维见[生产环境部署Handbook](hindsight-production-deployment.md)。本页本地数据库、内置worker及固定实验project不直接作为生产集群配置。
+
 ## 1 部署组成与数据归属
 
 ```text
@@ -38,7 +40,7 @@ Hindsight的bank组织一个记忆空间，`retain/recall/reflect`分别负责�
 | 官方单容器＋pg0 | 最快体验、英文小实验 | 只作替代；pg0不含本例中文词法所需PGroonga扩展，不作为主线 |
 | 固定源码＋独立PGroonga数据库 | 本项目中文短记录实验 | 下文完整步骤和模板 |
 | slim镜像＋外部embedding/reranker | 已有受控模型服务 | 可替代；需另配provider和网络，不能保留`local`却删除本地ML依赖 |
-| 分离API/worker、Kubernetes或远程生产数据库 | 独立扩容、正式运维 | 后续部署设计和容量/安全验收；本例不是HA部署包 |
+| 分离API/worker或远程生产数据库 | 独立扩容、正式运维 | 见[生产手册](hindsight-production-deployment.md)及其待验收边界；Kubernetes编排另行设计，本例不是HA部署包 |
 
 需要Git、Docker Engine或Docker Desktop、Compose插件、Python 3、curl，以及18889/19999空闲端口。构建会下载基础镜像和依赖；首次启动还会下载BGE-M3与reranker权重。中文模型比默认英文小模型占用更多内存和磁盘，应给实验机留出数GB模型空间及足够运行内存，实际峰值和延迟另测，不照抄默认英文模型的硬件估值。[安装与镜像][installation]、[中文配置][multilingual]。
 

@@ -1,0 +1,141 @@
+name: ${HINDSIGHT_COMPOSE_PROJECT:-hindsight-production}
+
+# Candidate only: build/review/publish one api-only image before deployment.
+# No local database, queue, model server, build, or Control Plane is started here.
+x-hindsight-environment: &hindsight-environment
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONUNBUFFERED: "1"
+  HINDSIGHT_API_HOST: 0.0.0.0
+  HINDSIGHT_API_PORT: "8888"
+  HINDSIGHT_API_DATABASE_SCHEMA: "${HINDSIGHT_DB_SCHEMA:-hindsight}"
+  HINDSIGHT_API_READ_DATABASE_URL: ""
+  HINDSIGHT_API_MIGRATION_DATABASE_URL: ""
+  HINDSIGHT_API_VECTOR_EXTENSION: pgvector
+  HINDSIGHT_API_TEXT_SEARCH_EXTENSION: pgroonga
+  HINDSIGHT_API_RUN_MIGRATIONS_ON_STARTUP: "false"
+  HINDSIGHT_API_WORKER_ENABLED: "false"
+  HINDSIGHT_API_SKIP_LLM_VERIFICATION: "true"
+  HINDSIGHT_API_ENABLE_BANK_LLM_HEALTH: "false"
+  HINDSIGHT_API_ENABLE_OBSERVATIONS: "false"
+  HINDSIGHT_API_ENABLE_AUTO_CONSOLIDATION: "false"
+  HINDSIGHT_API_BANK_INFO_CACHE_TTL_SECONDS: "0"
+  HINDSIGHT_API_MCP_ENABLED: "false"
+  HINDSIGHT_API_TENANT_EXTENSION: hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension
+  HINDSIGHT_API_TENANT_MCP_AUTH_DISABLED: "false"
+  HINDSIGHT_API_FILE_STORAGE_TYPE: native
+  HINDSIGHT_API_ENABLE_FILE_UPLOAD_API: "false"
+  HINDSIGHT_API_LLM_TRACE_ENABLED: "false"
+  HINDSIGHT_API_LOG_LEVEL: info
+  HINDSIGHT_API_LOG_FORMAT: json
+  HINDSIGHT_API_DB_POOL_MIN_SIZE: "1"
+  HINDSIGHT_API_DB_POOL_MAX_SIZE: "10"
+  HINDSIGHT_API_DB_ACQUIRE_TIMEOUT: "15"
+  HINDSIGHT_API_DB_COMMAND_TIMEOUT: "60"
+
+x-hindsight-runtime: &hindsight-runtime
+  image: "${HINDSIGHT_IMAGE:?Set an approved registry/name@sha256 digest}"
+  working_dir: /app/api
+  user: "1000:1000"
+  init: true
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:rw,nosuid,nodev,size=128m,mode=1777
+  env_file:
+    - "${HINDSIGHT_RUNTIME_ENV_FILE:?Set the private runtime env file}"
+  environment:
+    <<: *hindsight-environment
+  volumes:
+    - type: bind
+      source: "${HINDSIGHT_PG_CA_FILE:?Set the verified PostgreSQL CA file}"
+      target: /etc/hindsight/postgres-ca.pem
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: "${HINDSIGHT_PG_PASSFILE:?Set the private runtime PostgreSQL passfile}"
+      target: /etc/hindsight/postgres.pgpass
+      read_only: true
+      bind:
+        create_host_path: false
+  stop_grace_period: 120s
+
+x-api-health: &api-health
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8888/health/ready', timeout=3).close()"]
+  interval: 15s
+  timeout: 5s
+  retries: 8
+  start_period: 120s
+
+x-worker-health: &worker-health
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8889/health/ready', timeout=3).close()"]
+  interval: 15s
+  timeout: 5s
+  retries: 8
+  start_period: 120s
+
+services:
+  migrate:
+    <<: *hindsight-runtime
+    profiles: [migration]
+    restart: "no"
+    env_file:
+      - "${HINDSIGHT_MIGRATION_ENV_FILE:?Set the private migration env file}"
+    environment:
+      <<: *hindsight-environment
+      # This CLI serves no HTTP; explicit --schema does not need API-key tenant auth.
+      HINDSIGHT_API_TENANT_EXTENSION: ""
+    command: ["hindsight-admin", "run-db-migration", "--schema", "${HINDSIGHT_DB_SCHEMA:-hindsight}", "--embedding-dimension", "${HINDSIGHT_EMBEDDING_DIMENSION:-1024}"]
+    volumes:
+      - type: bind
+        source: "${HINDSIGHT_PG_CA_FILE:?Set the verified PostgreSQL CA file}"
+        target: /etc/hindsight/postgres-ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${HINDSIGHT_MIGRATION_PASSFILE:?Set the private migration PostgreSQL passfile}"
+        target: /etc/hindsight/postgres.pgpass
+        read_only: true
+        bind:
+          create_host_path: false
+
+  api-1:
+    <<: *hindsight-runtime
+    restart: unless-stopped
+    command: ["hindsight-api", "--host", "0.0.0.0", "--port", "8888", "--workers", "1"]
+    ports:
+      - "127.0.0.1:${HINDSIGHT_API_1_PORT:-18889}:8888"
+    healthcheck: *api-health
+
+  worker-1:
+    <<: *hindsight-runtime
+    # Restart recovers unfinished tasks; reconcile unknown model calls before starting.
+    restart: "no"
+    command: ["hindsight-worker", "--http-host", "0.0.0.0", "--http-port", "8889"]
+    environment:
+      <<: *hindsight-environment
+      HINDSIGHT_API_WORKER_ID: "${HINDSIGHT_WORKER_1_ID:?Set one globally unique stable worker-1 ID}"
+    healthcheck: *worker-health
+
+  api-2:
+    <<: *hindsight-runtime
+    profiles: [scale]
+    restart: unless-stopped
+    command: ["hindsight-api", "--host", "0.0.0.0", "--port", "8888", "--workers", "1"]
+    ports:
+      - "127.0.0.1:${HINDSIGHT_API_2_PORT:-18890}:8888"
+    healthcheck: *api-health
+
+  worker-2:
+    <<: *hindsight-runtime
+    profiles: [scale]
+    restart: "no"
+    command: ["hindsight-worker", "--http-host", "0.0.0.0", "--http-port", "8889"]
+    environment:
+      <<: *hindsight-environment
+      HINDSIGHT_API_WORKER_ID: "${HINDSIGHT_WORKER_2_ID:?Set one globally unique stable worker-2 ID}"
+    healthcheck: *worker-health

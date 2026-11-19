@@ -4,6 +4,8 @@
 
 2026-11-18补充§1.1–1.2的核心架构理念与组件关系，并增加[开源自部署Handbook](../docs/handbooks/hindsight-self-hosted-deployment.md)和[agent-service接入Handbook](../docs/handbooks/hindsight-agent-service-integration.md)。手册继续采用上述固定版本，操作命令供后续执行；本轮不实际部署或开发服务。
 
+远程数据库、API/worker分离及多实例配置另见[生产环境部署Handbook](../docs/handbooks/hindsight-production-deployment.md)。原版已有的共享PG队列与多worker能力、具体运维前置及仍待开发的授权/生命周期保证分别说明，不据部署拓扑推论完整协议符合度。
+
 **Hindsight有较高参考价值，适合优先作为完整派生记忆引擎的对照；目前没有证据要求替换本项目架构或修改首发合同。** 最值得借鉴的是具体的抽取与更新规则、归纳的新鲜度处理、时间范围召回，以及按处理阶段组织的真实模型评测。当前缺口主要在可执行实现和效果证据，不能把合同已经写明的能力再次列成设计缺失。
 
 本仓此前已在[框架研究](memory-frameworks-notes.md)核对Hindsight 1.1.0，并在[04§6.1](../docs/spec-v1/04-evaluation-and-acceptance.md#61-对照组)列为可选对照。本次补核1.2.1；旧研究保留其版本语境。本报告只提出候选优化，同步研究入口与交接，不修改现行API、schema、检索基线、数值门槛或A/B/C范围。

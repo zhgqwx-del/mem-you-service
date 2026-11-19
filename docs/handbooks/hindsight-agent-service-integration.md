@@ -4,6 +4,8 @@
 
 Hindsight可以作为外部HTTP记忆服务，不要求替换agent-service的主模型。建议先在可信App后端编排“recall→冻结输入→提交turn”，用独立任务retain原始来源；需要正式动态记忆时，再开发MemoryAdapter、证据依赖和Host消费门禁。Hindsight的架构理念及现行设计比较见[专项评估](../../research/hindsight-design-review.md)，开源部署先按[部署Handbook](hindsight-self-hosted-deployment.md)完成。
 
+生产侧远程数据库、独立worker与多API部署另见[生产部署Handbook](hindsight-production-deployment.md)。部署副本增加不自动补齐本页的Runtime、业务授权、来源依赖或消费者清理工作。
+
 本手册固定Hindsight源码 [`b92ceb1`](https://github.com/vectorize-io/hindsight/tree/b92ceb180e349a456d2b5454575067b6ff0f6306)、API和TypeScript客户端1.2.1；只读核查本机agent-service为干净 `main / 6870e7346d98ef193de51e8f328e1f967066da2a`。下文配置名、适配函数和待开发流程用于实施设计，本次没有安装SDK、发请求、部署服务或修改外仓。
 
 ## 1 先确定接入层级
