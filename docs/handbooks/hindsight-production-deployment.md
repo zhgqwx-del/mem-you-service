@@ -112,6 +112,7 @@ docker buildx imagetools inspect registry.example.invalid/ai/hindsight:b92ceb1
 | `HINDSIGHT_API_DB_POOL_MIN_SIZE` / `MAX_SIZE` | 显式小池起步，如1/10；依据容量实测调整 |
 | `HINDSIGHT_API_WORKER_MAX_SLOTS` | 显式限制每worker并发；全部worker与模型端限流共同核算 |
 | `HINDSIGHT_API_WORKER_CONSOLIDATION_RESERVED_SLOTS` | 样例0；配合总槽2保留普通任务共享槽，不能沿用默认归纳预留2而占满总池 |
+| `HINDSIGHT_API_RETAIN_BATCH_ENABLED` | false，主线不启用供应方Batch API；普通异步retain不受此限制，已有Batch任务另查 |
 | `HINDSIGHT_API_BANK_INFO_CACHE_TTL_SECONDS` | 候选基线0；若保留默认缓存，必须记录跨实例传播时限 |
 | `HINDSIGHT_API_TENANT_EXTENSION` / `TENANT_API_KEY` | 内置共享Bearer key或已验证tenant扩展；共享key不自动绑定业务owner |
 | `HINDSIGHT_API_EMBEDDINGS_PROVIDER` / `EMBEDDINGS_TEI_URL` | `tei`及受控私网TEI地址；固定BGE-M3、1024维及其revision |
@@ -206,7 +207,26 @@ curl --fail-with-body http://127.0.0.1:18889/health/ready
 
 worker健康端口8889只在容器内，使用编排器内部检查或同容器探针；不把它作为用户流量入口。API ready、worker ready、模型探测、数据库TLS、合成业务请求是不同证据。初期仍封闭网关，不让真实owner成为首轮smoke。
 
-无key的bank列表应被拒，有key在受控curl配置中读取，不把key放命令参数。复用[自部署手册§6–8](hindsight-self-hosted-deployment.md#6-创建合成bank并核对生效配置)建立全新合成bank、记录operation UUID/body、retain并只读轮询，再recall。生产样例的归纳开关与生效bank配置应先核对；原operation completed不证明其它归纳/主题刷新或消费者清理完成。
+手动HTTP检查前，先由安全配置流程在本部署目录**首次创建**`private/curl.conf`，使用与`private/runtime.env`中`HINDSIGHT_API_TENANT_API_KEY`相同的服务key。已有文件先核对，不覆盖、不重新生成一组key，也不执行单机手册第4节的私有配置初始化。curl配置格式如下，占位符由安全流程填入，秘密不放在命令参数中：
+
+```text
+header = "Authorization: Bearer <same-service-key-from-secret-store>"
+```
+
+随后准备受保护的合成回执目录；已有回执时检查原实验并保留原operation身份，不重跑首次初始化：
+
+```sh
+(
+set -eu
+umask 077
+test -f private/curl.conf
+test ! -e private/receipts
+chmod 600 private/curl.conf
+mkdir private/receipts
+)
+```
+
+无key的bank列表应被拒，有key通过上述curl配置读取。再复用[自部署手册§6–8](hindsight-self-hosted-deployment.md#6-创建合成bank并核对生效配置)的HTTP请求建立全新合成bank、记录operation UUID/body、retain并只读轮询，再recall；引用步骤中的`HINDSIGHT_URL`须替换为本次实际端点，不能用实验默认18889覆盖已选择的生产端口。生产样例的归纳开关与生效bank配置应先核对；原operation completed不证明其它归纳/主题刷新或消费者清理完成。
 
 迁移成功也不证明运行角色能创建新bank的部分向量索引，必须在合成bank上验证实际写入/更新/删除。TLS应分别检查asyncpg运行连接、psycopg2迁移连接的`pg_stat_ssl`，并做错误CA和错误主机名负例；仅看到`ssl=true`不能证明客户端校验了证书身份。不要通过设置`sslmode=require`或关闭证书验证让负例“通过”。[TLS模式][pg-ssl]。
 
@@ -246,11 +266,23 @@ worker并发、API同步retain、reflect、embedding批次、TEI及LLM供应方�
 
 ## 7 worker身份 关闭及故障接管
 
-worker ID是运行身份，不是随每次任务生成的request ID。模板的两个ID必须不同，多主机也不能重复；使用稳定ID才能在重启时识别自身遗留任务。容器随机hostname不是完整的自动故障接管方案。[worker入口][worker-main]。
+worker ID是运行身份，不是随每次任务生成的request ID。模板的两个ID必须不同，多主机也不能重复；原版没有跨进程重复ID拒绝门禁，发布准入必须核对全局实例清单，不能只依赖模板对本地两个ID的比较。同ID第二进程可能把仍活实例的任务当作遗留任务恢复；稳定ID只有在旧进程已停止的前提下才可复用。容器随机hostname不是完整的自动故障接管方案。[worker入口][worker-main]。
 
-**再次启动worker或释放processing之前，先核对遗留任务及未知付费结果。** 固定poller启动时会把本worker ID遗留的processing任务按重试上限恢复为pending或failed，并与领取循环并行运行；它没有暂停队列等待人工核对供应方结果的门禁。候选模板因此关闭worker容器自动重启，由受控流程显式启动；外部编排器也须按同一条件放行。运行中的原版重试仍需另验，`restart: "no"`不提供恰好计费一次。[自身任务恢复][worker-recovery]、[恢复与领取并行][worker-start-recovery]。
+**再次启动worker或释放processing之前，先核对遗留任务及未知付费结果。** 固定poller启动时，会把本worker ID遗留的普通非provider-Batch processing任务按恢复预算转为pending或failed，并与领取循环并行运行；它没有暂停队列等待人工核对供应方结果的门禁。候选模板因此关闭worker容器自动重启，由受控流程显式启动；外部编排器也须按同一条件放行。运行中的原版重试仍需另验，`restart: "no"`不提供恰好计费一次。[自身任务恢复][worker-recovery]、[恢复与领取并行][worker-start-recovery]。
 
-正常关闭还会回交未完成任务，其它活worker可能随即领取；只停一个worker不能冻结队列。若要求未知付费结果核对前禁止重执行，需要额外的受控消费门禁覆盖所有相关worker及同步API路径，并处理在途调用；逐个stop、稳定ID或admin释放都不等于原子冻结。这部分属于待开发/验收能力。[关闭回交][worker-release]。
+provider Batch还有单独的启动恢复路径：它扫描所处理schema中带`batch_id`的旧processing任务，不按worker ID筛选，可能重置另一活worker仍在轮询的任务。主线显式关闭`HINDSIGHT_API_RETAIN_BATCH_ENABLED`，但该环境开关不会清除既有metadata，也不会让启动恢复跳过这些记录。复用库上线或扩容前，由DBA只读检查未完成Batch任务并核对供应方状态；仍有此类任务时先按受控隔离方案处理，不能直接增加worker。启用provider Batch须另行验证或修正跨worker恢复，不能以“只恢复自身ID”作为安全前提。[Batch恢复][worker-batch-recovery]。
+
+以下查询只返回计数，不改任务或输出原文；自定义schema时同步替换`hindsight`：
+
+```sql
+SELECT status, count(*) AS batch_operations
+FROM hindsight.async_operations
+WHERE status IN ('pending', 'processing')
+  AND result_metadata ? 'batch_id'
+GROUP BY status;
+```
+
+正常关闭也会按恢复预算处理本worker未完成的普通任务：恢复会增加`retry_count`，预算耗尽则标failed，其余回pending后可能立即被其它活worker领取；provider Batch不走这条关闭回交路径。重复drain超时的发布可能耗尽恢复预算，核对状态须包含failed。只停一个worker不能冻结队列；若要求未知付费结果核对前禁止重执行，需要额外的受控消费门禁覆盖所有相关worker及同步API路径，并处理在途调用。逐个stop、稳定ID或admin释放都不等于原子冻结，这部分属于待开发/验收能力。[关闭回交][worker-release]。
 
 | 场景 | 操作与证明 |
 |---|---|
@@ -303,6 +335,8 @@ touch "$HINDSIGHT_BACKUP_DIR/EXPORT_COMPLETED"
 
 目录已存在或任何命令失败即停止。完成标记只代表导出及摘要命令成功，不证明恢复可用；数据库备份、libpq service/passfile及证书分别按安全流程保管，业务密钥不与公开交付材料混存。
 
+`pg_dump`是单数据库逻辑备份，不包含集群角色及成员关系。DBA另存非秘密的角色/授权定义，隔离恢复前重建所需owner、成员关系并核对ACL；凭证通过独立安全渠道重新注入，不把数据库dump当作完整集群备份。[pg_dump范围][pg-dump]。
+
 跨系统恢复还需要App journal、source/document映射和本项目独立控制日志，不能只恢复Hindsight数据库便开放Agent召回。为隔离新库恢复准备同版本PG/扩展和相同schema，API/worker保持关闭，先补当前删除/撤权及应抑制内容，再核operation/预算和数据摘要。备份中的pending/processing可能在worker启动后再次产生模型费用。
 
 生产升级顺序为：冻结发布manifest与bank覆盖→停止新写入及网关重试→排空或记录在途任务→停止全部API/worker及维护→备份→独占迁移→启动封闭API/worker→合成/故障验证→逐步放量。数据库迁移不保证可逆；已经改变schema/embedding/索引后，不能仅将镜像tag改回旧版作为回退。使用隔离副本验证恢复和回退边界，禁止用删除卷或重建空库掩盖失败。
@@ -318,6 +352,7 @@ touch "$HINDSIGHT_BACKUP_DIR/EXPORT_COMPLETED"
 | 多worker认领和串行 | 已有PG任务claim及相关串行键 | 同bank并发/部分提交/模型unknown故障测试 |
 | 多API共享读取 | 已有服务架构 | 配置传播、bank首次创建、滚动混版本和连接预算验证 |
 | 硬崩worker回收 | 有稳定ID恢复与admin释放操作 | 旧进程隔离、身份编排及受控接管；不能只靠超时自动抢任务 |
+| provider Batch恢复 | 启动时另有跨worker扫描路径；主线关闭此路线 | 复用库旧Batch任务核对、在途隔离及多worker启动验证，必要时修复恢复条件 |
 | 未知付费结果隔离 | 启动恢复、停止回交及运行中重试可能继续执行任务 | 跨worker/同步API消费门禁、供应方结果核对及attempt预算；关闭容器自动重启仅是运维前置 |
 | 多租户/域权限 | 有扩展点及服务端scope | 我方可信owner/主体/域/grant映射与全部读取/工具出口校验 |
 | 严格迁移/运行角色分离 | 不能仅用纯DML授权保证全部运行路径 | 动态DDL/索引预建、权限验收，必要时修改引擎 |
@@ -333,7 +368,7 @@ touch "$HINDSIGHT_BACKUP_DIR/EXPORT_COMPLETED"
 1. 镜像digest、CLI入口、非root、只读根目录、端口、私有文件及同名环境覆盖检查。
 2. PG运行与迁移两条连接的正反TLS、passfile权限、扩展、schema及动态建bank/索引权限。
 3. 单API/worker下合成retain、原UUID核对、recall、更新/删除及重启，不把样例成功当中文验收。
-4. 多API/multiworker下并发同bank、部分提交、配置更新、模型限流/未知、SIGTERM、硬崩和重复ID拒绝。
+4. 多API/multiworker下并发同bank、部分提交、配置更新、模型限流/未知、SIGTERM及硬崩；部署准入须拒绝重复worker ID，原版不提供该门禁，provider Batch另验。
 5. DB故障切换、LB摘除、worker接管及隔离恢复，验证旧内容与旧任务不会无授权重新交付或盲目计费。
 6. 按现行D1–D4及真实声明能力完成中文收益、总成本、容量和消费者生命周期验证。
 
@@ -345,6 +380,7 @@ touch "$HINDSIGHT_BACKUP_DIR/EXPORT_COMPLETED"
 [worker-recovery]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/worker/poller.py#L1657
 [worker-start-recovery]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/worker/poller.py#L1957
 [worker-release]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/worker/poller.py#L1711
+[worker-batch-recovery]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/worker/poller.py#L1755
 [multilingual]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-docs/docs/developer/multilingual.mdx
 [retrieval]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-docs/docs/developer/retrieval.md
 [pg-backend]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/engine/db/postgresql.py#L299
@@ -355,6 +391,7 @@ touch "$HINDSIGHT_BACKUP_DIR/EXPORT_COMPLETED"
 [asyncpg-api]: https://magicstack.github.io/asyncpg/current/api/index.html#asyncpg.connect
 [pgpass]: https://www.postgresql.org/docs/17/libpq-pgpass.html
 [pg-ssl]: https://www.postgresql.org/docs/17/libpq-ssl.html
+[pg-dump]: https://www.postgresql.org/docs/17/app-pgdump.html
 [dockerfile]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/docker/standalone/Dockerfile#L173
 [embedding]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/engine/embeddings.py#L806
 [reranker]: https://github.com/vectorize-io/hindsight/blob/b92ceb180e349a456d2b5454575067b6ff0f6306/hindsight-api-slim/hindsight_api/engine/cross_encoder.py#L520

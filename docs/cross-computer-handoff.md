@@ -726,3 +726,15 @@ git diff --check
 - 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，提交前分叉为0/0。交付限定生产Handbook、5份production模板/说明、两份旧Handbook导航、研究、根README、docs索引与本文共12份文件；暂存后核完整文件集合、字节及空白，按授权正常提交并推送main，不强推，最终SHA与远端结果以实际Git及本轮回执核对。
 
 第37节“编写阶段未提交”是材料整理快照，本小节记录后继复核和Git交付。当前shell无Docker CLI，未执行真实Compose展开、构建/部署、数据库迁移/TLS握手、模型、容量或恢复验收；本次仅交付候选文档和部署配置，没有修改服务代码或把静态检查升级为生产验收。
+
+
+### 37.2 Hindsight生产部署材料再次复核与Git交付
+
+用户再次要求整体复核生产Handbook、部署模板及相关文档，修正后提交并推送，仍不部署或开发服务。起点已为干净 `main / 2234661ffa6ba5268eefce12fc28d1ecfd5b6abf`，第37.1节材料此前已独立提交。工作期间出现第38节接入Handbook及两级索引/交接的并行补充，保留其工作区内容，不纳入本次生产部署复核提交。
+
+- 主审及三路独立只读复核重新核对固定b92ceb1源码、正文、5份production文件与相关入口。补齐生产合成HTTP检查所需的同key curl.conf、0600权限及0700回执目录，引用单机请求时保留实际端点，不执行单机密钥初始化。修正非秘密路径预检与Compose dotenv解析不一致，五个路径键拒绝插值、引号、注释、转义和控制字符；私有环境文件仍保留Docker dotenv能力。
+- 明确普通任务恢复与provider Batch跨worker扫描的差别；模板显式RETAIN_BATCH_ENABLED=false，复用库仍须只读筛查旧Batch任务，关闭开关不清已有metadata。补普通任务关闭也消耗恢复预算并可能failed、原版不自动拒绝重复worker ID及发布准入责任，未将这些运维前置冒充unknown消费门禁。补pg_dump不含集群角色/成员关系，owner/ACL及凭证另行恢复；研究中“两份Handbook”改为相关Handbook。修正增量经独立复核，未发现剩余文档提交阻断问题。
+- 实际执行 `PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/hindsight-production-review-check.py`、`PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/hindsight-production-review-static.py`、`PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/hindsight-production-review-init.py`、`git diff --check`及spec-v1保护核对。Markdown链接/锚点、围栏/JSON、固定源码路径、相关shell/JavaScript/嵌入Python和5服务YAML检查通过；18个离线配置场景、5个原初始化场景和3个合成HTTP准备场景通过。均使用临时合成文件和替身Docker，不读取真实凭证或连接服务；passfile UID仅在fixture元数据中映射。生产拓扑图源码未改，保留既有渲染证据；并行接入图不算本次交付。临时检查器不纳入Git。
+- 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，本次核对分叉为0/0。提交限定生产Handbook、production README/Compose、专项研究文字及本文第37.2节，共5份文件；共享交接只暂存本节，保留第38节及其它接入/索引修改在工作区。暂存后核对发布版本的文件集合、内容、链接和空白，再按授权正常提交并推送main，不强推；最终SHA和远端同步以实际Git结果为准。
+
+本次仅复核文档与候选配置；没有Docker CLI，未执行真实Compose展开、构建/部署、数据库/TLS/模型或恢复验收，未开发服务、修改外部agent-service或现行spec-v1合同。生产部署、中文质量、费用、容量/HA及完整生命周期仍按手册列出的边界实施和验收。

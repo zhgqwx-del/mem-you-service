@@ -18,6 +18,8 @@ x-hindsight-environment: &hindsight-environment
   HINDSIGHT_API_ENABLE_BANK_LLM_HEALTH: "false"
   HINDSIGHT_API_ENABLE_OBSERVATIONS: "false"
   HINDSIGHT_API_ENABLE_AUTO_CONSOLIDATION: "false"
+  # Provider Batch recovery has a cross-worker path; keep this route out of the baseline.
+  HINDSIGHT_API_RETAIN_BATCH_ENABLED: "false"
   HINDSIGHT_API_BANK_INFO_CACHE_TTL_SECONDS: "0"
   HINDSIGHT_API_MCP_ENABLED: "false"
   HINDSIGHT_API_TENANT_EXTENSION: hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension

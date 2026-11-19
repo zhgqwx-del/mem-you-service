@@ -26,11 +26,13 @@ deploy.production/
     postgres-ca.pem
     postgres.pgpass
     migration.pgpass
+    curl.conf             # 手动HTTP检查前由安全配置流程提供，0600
+    receipts/             # 手动HTTP检查的本地回执目录，0700
 ```
 
 默认启动`api-1`和`worker-1`。`api-2`、`worker-2`属于`scale` profile，`migrate`仅属于`migration` profile；均无`container_name`。API每容器一个进程，loopback端口分别为18889/18890；worker的8889只在容器网络内用于健康及指标，不发布宿主端口。负载均衡器在本文件之外配置。
 
-每个worker都要有**全局唯一且稳定**的ID。不要直接使用`--scale worker-1=2`，也不要把另一台主机的`.env`原样复制后启动同名worker ID。示例采用显式worker-1/worker-2；扩到多主机时还需更换主机级project、ID和网关后端地址。单机多进程不能证明主机故障高可用。
+每个worker都要有**全局唯一且稳定**的ID。原版没有跨进程重复ID拒绝门禁；本页预检只比较本地两个值，全局唯一性由发布准入和实例清单保证。不要直接使用`--scale worker-1=2`，也不要把另一台主机的`.env`原样复制后启动同名worker ID。示例采用显式worker-1/worker-2；扩到多主机时还需更换主机级project、ID和网关后端地址。单机多进程不能证明主机故障高可用。
 
 候选模板的worker使用`restart: "no"`，由受控流程核对遗留任务和未知付费结果后显式启动；API保留`unless-stopped`。外部编排器也应遵守同一重启准入，不能重新加无条件自动拉起。关闭容器自动重启仍不阻止运行中重试、正常关闭回交或其它worker领取；严格的unknown付费隔离需要额外消费门禁，不由此模板提供。
 
@@ -113,9 +115,11 @@ TEI embedder会调用`GET /info`并在初始化时真实`POST /embed`探测维�
 
 首次使用先保持observations/自动巩固关闭；环境默认不保证覆盖已有bank持久配置，也不会取消数据库里已经排队的任务。启动worker前核原任务、预算和bank生效配置。运行时样例的operation保留30天仅为候选运维策略，过期后`not_found`不能证明未执行；记录和删除要求、外部journal恢复期应在发布前统一冻结。关闭LLM trace也不会清理既有trace或operation payload。
 
+模板另显式设置`HINDSIGHT_API_RETAIN_BATCH_ENABLED=false`，这是供应方Batch API路线的全局开关，普通异步retain仍可使用。关闭它不会清除已有Batch任务；启动恢复会扫描schema内带`batch_id`的旧processing记录，不只处理自身worker ID。复用库启动或扩容前，按主手册第7节核对遗留Batch任务；启用这条路线需单独验证跨worker恢复和在途任务隔离。
+
 ## 5 参数核对与启动顺序
 
-先填`.env`非秘密参数，此文件只接受样例中的单行`NAME=value`和注释，不接受`export`前缀等额外语法；私有runtime/migration文件仍按Docker dotenv格式提供。以下是**全新安装检查**：读取Compose参数和文件元数据，并通过Docker只读查询拒绝已有同名project容器或网络；不读取passfile、运行期环境文件或CA内容，不回显值。新目录不证明数据库为空，DBA仍须确认本次目标库及schema。已有实例升级/恢复应使用原配置及主手册的停写、备份流程，不能换project绕过检查。检查之后的Compose操作应使用同一shell、同一目录和同一配置；不要在中间改变导出变量。
+先填`.env`非秘密参数，此文件采用样例中的单行`NAME=value`和注释，不接受`export`前缀等额外语法。五个文件路径须使用单行字面值，不含`$`、引号、`#`、反斜杠或控制字符；这是Linux主线的受限格式，避免预检按字面检查一个文件、Compose插值后读取另一个文件。私有runtime/migration文件仍按完整Docker dotenv格式提供。以下是**全新安装检查**：读取Compose参数和文件元数据，并通过Docker只读查询拒绝已有同名project容器或网络；不读取passfile、运行期环境文件或CA内容，不回显值。新目录不证明数据库为空，DBA仍须确认本次目标库及schema。已有实例升级/恢复应使用原配置及主手册的停写、备份流程，不能换project绕过检查。检查之后的Compose操作应使用同一shell、同一目录和同一配置；不要在中间改变导出变量。
 
 ```sh
 python3 - <<'PY'
@@ -143,6 +147,12 @@ if reserved.intersection(rows):
     raise SystemExit('Remove Compose control keys from the .env file before proceeding')
 if (set(rows) | reserved).intersection(os.environ):
     raise SystemExit('Remove inherited Compose configuration names before proceeding')
+path_keys = ('HINDSIGHT_RUNTIME_ENV_FILE', 'HINDSIGHT_MIGRATION_ENV_FILE',
+             'HINDSIGHT_PG_CA_FILE', 'HINDSIGHT_PG_PASSFILE', 'HINDSIGHT_MIGRATION_PASSFILE')
+for key in path_keys:
+    value = rows.get(key, '')
+    if not value or any(char in "$'\"#\\" or ord(char) < 32 or ord(char) == 127 for char in value):
+        raise SystemExit('Use literal single-line paths without dotenv interpolation, quotes, comments or escapes')
 if not re.fullmatch(r'[a-z0-9][a-z0-9._:/-]*@sha256:[0-9a-f]{64}', rows.get('HINDSIGHT_IMAGE', '')):
     raise SystemExit('Set one approved immutable image digest')
 if not re.fullmatch(r'[a-z0-9][a-z0-9_-]*', rows.get('HINDSIGHT_COMPOSE_PROJECT', '')):
@@ -179,7 +189,7 @@ print('New-install parameters, file metadata and project checks passed; no secre
 PY
 ```
 
-该检查同时拒绝`.env`及宿主环境中的上述Compose控制变量，防止后续改用未核验的配置文件、project或profile。[Compose变量来源](https://docs.docker.com/compose/how-tos/environment-variables/envvars/)。它不验证镜像来源、数据库权限、跨主机worker ID是否重复，或真实TLS/模型接口；这些仍须按主手册验收。
+该检查同时拒绝`.env`及宿主环境中的上述Compose控制变量，防止后续改用未核验的配置文件、project或profile；路径限制避免Docker dotenv的插值/引号/注释处理改变所检查的路径。[Compose变量来源](https://docs.docker.com/compose/how-tos/environment-variables/envvars/)、[dotenv语法](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/#env-file-syntax)。它不验证镜像来源、数据库权限、跨主机worker ID是否重复，或真实TLS/模型接口；这些仍须按主手册验收。
 
 先由单个受控操作者独占运行迁移，确认成功后才进入API/worker阶段；不要多节点并发迁移：
 
@@ -205,6 +215,8 @@ docker compose ps
 ```
 
 健康端点只检查进程/数据库等就绪情况，不发起新的生成式LLM请求；进程初始化时的TEI探测和worker执行既有任务另计。API内置worker被关闭，独立`hindsight-worker`仍会执行任务；不能因同一环境中`WORKER_ENABLED=false`就认为worker CLI也停用了。
+
+进入手动合成HTTP检查前，另按主手册第5节准备同一服务key的`private/curl.conf`和`private/receipts/`。不要重新执行单机手册中生成另一组配置/密钥的步骤。
 
 ## 6 多实例与运维边界
 
