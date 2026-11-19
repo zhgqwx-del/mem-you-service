@@ -1,6 +1,6 @@
 # 跨电脑开发交接说明
 
-最近核对日期：2026-11-18（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Agent记忆Hook与时序梳理见第28节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节，Hook地图复核与Git交付见第31节，Hindsight专项评估见第32节，Hindsight复核与Git交付见第33节，Hindsight架构说明与两份Handbook见第34节，Hindsight Handbook复核与Git交付见第35节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
+最近核对日期：2026-11-18（America/Los_Angeles）；初次上下文恢复见第8节，分层与原设计复核见第9节，Agent路径见第10节，外部研究核对见第11节，整体审查与修订2见第12节，概念/时序阅读补充见第13节，agent-service宿主接入评估与未完项见第14节，人工阅读/会议导航见第15节，前次Git交付见第16节，Anthropic研究评估见第17节，04/06补充见第18节，分层机制与LLM职责说明见第19节，Anthropic整体复核与Git交付见第20节，七模块文章评估见第21节，三项优化补充与检查见第22节，七模块Git交付见第23节，Mem0专项研究见第24节，Mem0复核与Git交付见第25节，部署与接入Handbook见第26节，Handbook复核及设计对比交付见第27节，Agent记忆Hook与时序梳理见第28节，Mem0生产部署及多实例改造见第29节，生产Handbook复核与Git交付见第30节，Hook地图复核与Git交付见第31节，Hindsight专项评估见第32节，Hindsight复核与Git交付见第33节，Hindsight架构说明与两份Handbook见第34节，Hindsight Handbook复核与Git交付见第35节，Mem0检索/写入决策、AgentLoop接入及复核交付见第36节。初次交接记录使用2026-10-28（America/New_York），以下历史快照保留其适用时点。本文件记录交接状态与上手步骤，不新增业务/API合同。完整首次衔接指令见[可复制 Prompt](continuation-prompt.md)。
 
 ## 1 当前到底交付了什么
 
@@ -680,3 +680,25 @@ git diff --check
 - 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，提交前分叉为0/0。交付限定两份Hindsight Handbook、5份部署模板、研究架构补充、根README、docs索引和本文共11份文件；暂存后再核文件集合、内容及空白检查，按本次授权正常提交并推送main，不强推。包含本节的提交及最终远端同步以实际Git命令和历史核对，不预写自身commit。
 
 第34节“保留本地、未提交推送”是编写阶段快照，本节记录后继复核与Git交付。当前shell无Docker CLI，未执行真实Compose配置展开、镜像构建/部署、数据库初始化/恢复、模型调用或Runtime开发；静态与离线合成检查不构成真实部署、中文质量、费用、容量/恢复或full_lifecycle验收。
+
+
+## 36 2026-11-18 Mem0检索写入决策与AgentLoop接入补充
+
+用户要求把宿主/主Agent/LLM的检索与写入决策、每turn/step频率、AgentLoop时序及代码改造位置补入现有Mem0接入Handbook，暂不修改代码。起点为 `main / eea1ca52cd1b4f2a8ea09f47c0816c2b28876eca`；继承并保留并行Hindsight生产手册、模板与相关导航的本地改动。外仓重新只读核对仍为干净 `main / 6870e7346d98ef193de51e8f328e1f967066da2a`。
+
+- 扩充 [Mem0接入Handbook第6节](handbooks/mem0-agent-service-integration.md#6-路线b的runtime实施步骤)，同步docs索引。说明宿主控制可信scope、首次召回和来源采集；主Agent受控工具补查；Mem0抽取LLM提炼零到多条记忆。初始决策按turn持久，后续step/fallback复用，steer新增item按来源版本建任务、必要时开查询新revision。
+- 补充读写决策样例、REST调用频率表、目标时序图及固定源码改造位置。原输入持久后可建任务；冻结首次召回快照前不执行本轮add，无可靠来源排除且可能补查时延后至turn结束。写任务由持久状态恢复，不依赖Stop通知；自动采集与显式记忆避免两路重复，更正/删除不依靠ADD-only自动覆盖。
+- 区分Mem0原生search/add、宿主拟新增适配能力及本项目prepare/skip、bundle validate合同；小LLM分类跳过仅作为Mem0效果实验候选，不改现行自由输入/确定性路径边界。新增验证项供以后实施，尚无Runtime集成结果。
+- 主审及独立只读复核后，补明memory准入独立于现有lifecycle Hook开关、普通/fallback两路覆盖，以及原生item与任务建档的同事务/可恢复扫描。实际执行两仓Git状态/HEAD、定向源码核对、`PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem0-integration-decisions-check.py`、`git diff --check`及spec-v1保护核对。3份相关Markdown的相对链接/锚点、围栏、27处固定agent-service源码路径/行号、4段原有JavaScript及1段JSON检查通过；现有JavaScript/JSON和外仓工作区保持。新增Mermaid图经 `node /private/tmp/mem0-integration-decisions-mermaid.cjs` 离线解析/渲染并查看，临时独立无头浏览器阻断网络，不使用现有profile。临时检查器和图片不纳入Git。
+
+本轮仅修改Mem0接入Handbook、docs索引及本文，保留并行Hindsight本地内容；未修改外部agent-service、部署模板或现行spec-v1，未部署/调用服务或真实模型，编写阶段未提交或推送。动态MemoryAdapter、持久任务及完整生命周期仍待开发；静态文档检查不构成Runtime集成、真实中文效果或恢复验收。
+
+### 36.1 Mem0接入补充整体复核与Git交付
+
+用户后继明确授权整体复核本次Mem0接入补充及索引、交接，确认后提交并推送，仍限文档。起点保持 `main / eea1ca52cd1b4f2a8ea09f47c0816c2b28876eca`；外仓重新核为干净6870e734。主审及两路独立只读复核覆盖规则/主Agent/抽取LLM分工、turn/step计数、同轮读写、实际Host/Pi接点及现行合同，未发现剩余提交阻断问题。
+
+- 复核确认：初始召回由可信宿主编排，主Agent工具补查与Mem0抽取分别执行；3step示例计数为2次search加1次add，排除Mem0内部检索/抽取；steer按新item及必要revision处理，fallback复用快照。原生输入提交、可靠任务、摘要独立路径、可选Hook开关和Stop通知的边界与固定源码一致。
+- 实际重跑 `PYTHONDONTWRITEBYTECODE=1 python3 /private/tmp/mem0-integration-decisions-check.py`、`git diff --check`及spec-v1保护核对；3份相关Markdown的链接/锚点、围栏、27处固定源码路径/行号、4段JavaScript与1段JSON检查通过。时序图源码未改，沿用本节已记录的实际离线渲染/查看，并重新对照其成功/可信skip路径和故障说明；临时检查器与图片不纳入Git。
+- 已执行 `git -c http.proxy= -c https.proxy= fetch origin main`，本次提交前分叉为0/0。交付限定Mem0接入Handbook、docs索引中的Mem0段落及本文第36节/相应入口共3份Markdown；共享文件只暂存本次内容，保留并行Hindsight变更在工作区。暂存后检查完整文件集合、发布版本的链接及空白，按授权正常提交并推送main，不强推；最终SHA与远端同步结果以实际Git及本轮回执为准。
+
+前述“编写阶段未提交”是补充阶段快照，本小节记录后继复核与Git交付。此次没有修改代码、合同或部署模板，也未调用服务、模型或执行产品测试；动态Mem0接入及完整生命周期仍待实施验收。

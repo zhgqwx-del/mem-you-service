@@ -12,6 +12,8 @@
 
 操作步骤另见[Mem0自托管部署Handbook](handbooks/mem0-self-hosted-deployment.md)和[agent-service接入Handbook](handbooks/mem0-agent-service-integration.md)：附独立部署模板与手动HTTP检查脚本，按agent-service实际`6870e7346d98ef193de51e8f328e1f967066da2a`核对现有接点。它们是实验/接入指南，不是现行Memory API合同或已完成部署、集成的证明。
 
+2026-11-18在[Mem0接入Handbook第6节](handbooks/mem0-agent-service-integration.md#6-路线b的runtime实施步骤)补充宿主规则、主Agent与抽取LLM的分工，检索/写入决策、每turn/step调用频率、同轮读写顺序、AgentLoop时序及固定源码改造位置。首次召回、循环内补查和来源任务写入分别编排；动态适配器、持久队列及生命周期能力仍待开发。
+
 2026-11-15新增[Mem0生产环境部署Handbook](handbooks/mem0-production-deployment.md)和[远程中间件部署样例](handbooks/examples/mem0/production/README.md)：给出远程PostgreSQL、TLS、固定镜像、独立迁移和生产运维步骤，单独列出PG history/messages、配置发布、幂等／并发及删除栅栏等多实例待开发改造。原版仍有SQLite本地状态；未执行真实部署或改造引擎，不构成多副本已验收的证明。
 
 [Mem0与本项目设计对比](../research/mem0-design-comparison.md)进一步区分已覆盖能力、可优先落实的工程材料与需要效果证据的扩展；当前建议不改API、数据模型、A/B/C和验收门槛。

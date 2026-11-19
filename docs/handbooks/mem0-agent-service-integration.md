@@ -1,10 +1,12 @@
 # agent-service 接入自托管 Mem0 Handbook
 
-适用日期：2026-11-13。目标：让现有自研Agent服务使用自己部署的Mem0 OSS，通过跨会话记忆改善回应，并明确从效果验证到Runtime集成需要完成哪些步骤。
+适用日期：2026-11-18；部署与基础接入步骤初写于2026-11-13。目标：让现有自研Agent服务使用自己部署的Mem0 OSS，通过跨会话记忆改善回应，并明确检索/写入决策、AgentLoop时序及从效果验证到Runtime集成需要完成的步骤。
 
 **可以通过HTTP接入自托管Mem0，不需要Mem0 Platform账号，也不要求更换agent-service的主模型。** 最快可行路径是在可信App后端做“先查Mem0、再提交Agent turn、独立写回Mem0”；Runtime级自动召回、可靠后台写入及完整遗忘则需要新增适配和Host能力。
 
 本手册核对的本机源码为 `/Users/zhangguoqiang/ai-workspace/codex-workspace/agent-service`，干净 `main / 6870e7346d98ef193de51e8f328e1f967066da2a`。Mem0基线为 `f1791daa86d469249c9b002f62644d58a1eb96a0`。本次只交付指南和示例，未修改或启动agent-service。先完成 [Mem0部署Handbook](mem0-self-hosted-deployment.md) 的认证、持久化和合成CRUD检查。
+
+**建议采用混合决策：宿主规则控制首次召回、来源准入与预算，主Agent通过受控工具按需补查，Mem0抽取LLM决定具体记忆内容。** 每turn做读取决策，首次检索通常0或1次；后续step复用快照，自动写入按持久来源版本异步触发。详细分工、频率、时序及代码位置见[第6节](#6-路线b的runtime实施步骤)。当前agent-service尚未实现这些Mem0调用。
 
 生产接入使用[生产环境部署Handbook](mem0-production-deployment.md)中的受控HTTPS入口。多个agent-service调用一个Mem0，与多个Mem0副本共同写入不同；后者需先完成共享history、配置一致性及写入协调。网关不可自动重试未知写入，业务key也不应直达客户端。
 
@@ -203,7 +205,152 @@ SDK包按外仓真实交付方式引用；包名存在不代表已发布到npm�
 
 ## 6 路线B的Runtime实施步骤
 
-下面是待开发工作包及建议位置，不是现行agent-service配置或新增公共合同。若采用，应在外仓独立评审、实现并更新相应合同与验收。
+本节是结合当前agent-service的待开发接入方案；策略状态、适配器及工具名均需在实施时冻结，不是已有配置或公共API。按本节实施需在外仓更新相应合同与验收。
+
+### 6.1 宿主规则与两类LLM的分工
+
+这里的**宿主**指agent-runner及其SessionHost、Store和适配器；**主Agent**指Pi引擎内执行当前用户任务的智能体。一个服务端用户turn可以包含多次主模型step及工具调用；Pi内部的 `turn_start` 在当前适配代码中映射为step，不能据事件名统计用户turn。[Pi循环及step映射][agent-pi-loop]
+
+| 决策 | 负责人 | 具体职责 |
+|---|---|---|
+| 能否读写、查谁、查什么范围 | 可信宿主规则 | 认证owner/project、授权、来源资格、预算、取消与生命周期；不接受模型自行扩权 |
+| 首个主模型前是否召回 | 拟新增MemoryAdapter | 根据可信任务类型、输入路径和历史依赖，持久本轮初始检索或跳过决定 |
+| 执行中是否还缺历史信息 | 主Agent的任务LLM | 根据当前问题和已有结果，请求受控 `memory_search` 等工具补查 |
+| 哪些交互送入抽取 | 宿主采集策略与持久任务 | 选择可靠原输入、明确偏好或合规业务事件，固定来源/版本和正文 |
+| 从来源提炼什么 | Mem0的抽取LLM | `add(infer=True)` 提取零到多条记忆；抽取模型与主Agent模型可分别配置 |
+
+首次召回由宿主预先提供用户背景和适用约束，主Agent再决定是否补查。若只开放工具并完全依赖主Agent主动搜索，就需要单独测量它遗漏历史约束的情况。权限和任务预算始终由宿主执行。[Mem0抽取机制][mem0-add-doc]
+
+### 6.2 首次检索与工具补查的决策
+
+| 情形 | 建议处理 |
+|---|---|
+| 明确问历史、偏好、上次决策，或含指代/消歧 | 首个主模型请求前检索，返回有界记忆及明确的空/失败状态 |
+| 开放式咨询，需要结合个人或项目背景 | 初期保守检索；必须生效的已知约束由宿主保证进入适用上下文，不交给模型临时猜测 |
+| 可信结构化操作或确定性查询，主体、字段及回应均不依赖历史 | 记录跳过理由，直接执行相应业务路径；精确统计查询产品后端 |
+| 主体尚不明确、权限不足或检索失败 | 分别记录待澄清、拒绝或降级状态；不扩大scope，不伪装为检索成功但没有历史 |
+| 循环内发现证据不足或问题转向 | 主Agent用受控工具补查；适配器检查范围并保存补查结果及依赖 |
+
+初始决定至少关联可信operation和实际turn，并记录查询、scope、策略版本、理由、查询revision、结果状态及实际快照。重复Hook复用同一决定；输入/主体改变、证据不足或旧快照失效时才建立新的revision。steer可在同一个Host turn中新增原生item，必须重新评估它是否改变查询和写入来源，不能让turn级缓存覆盖后续新输入。[steer处理][agent-steer]
+
+轻量LLM分类器可以作为Mem0效果实验的优化项：比较它与保守检索在历史约束遗漏、跨会话问答、延迟和费用上的差异，模糊结果仍走检索。它会增加模型调用，规则、prompt和模型版本也需纳入决策记录。当前 [MemoryService合同03§2.1](../spec-v1/03-agent-sequences-and-recovery.md#21-目标生命周期) 对需要理解的自由输入要求首模型前prepare，仅允许有可信依据的确定性skip；不能把关键词或分类器判断直接当作这套完整合同的跳过依据。普通Runtime POST turn及 `stream=false` 也没有实现无模型确定性执行入口。
+
+### 6.3 来源准入与写入抽取的决策
+
+聊天持久化、来源镜像和Mem0抽取分别处理：原聊天由Host保存；本项目合同要求的获授权来源镜像按其生命周期执行；是否调用Mem0 `add` 再由采集策略决定。`search` 本身不会把查询自动写成记忆。
+
+| 交互或来源 | 建议写入策略 |
+|---|---|
+| “以后回答简短些”、已确认项目决策 | 原话可靠持久后建立抽取任务；若明确变更已有偏好，先定位旧目标并走更正流程 |
+| “这一次简短些” | 保留本轮要求，避免将临时指令自动提升为长期偏好 |
+| 纯寒暄且无新信息 | 可由采集规则跳过；“好的”若确认了上文方案，须保留必要上下文后再判断 |
+| 助手建议、工具结果、检索块、合成effective input | 初期关闭助手自动采集；需要保存建议时单独定义归属和确认条件，避免旧记忆循环采集 |
+| 正式记录提交或更正 | 从可信业务回执/Outbox进入，记录正式身份和版本；用户原报告与正式观测保持来源关联 |
+| 更正、删除、撤权或“别记这条” | 进入相应控制流程；明确目标、处理已有记忆及宿主副本，拦截不允许的新写入 |
+
+宿主可把获准交互直接交给 `add(infer=True)`，由Mem0完成内容筛选，无需固定再加一次“是否值得记住”的LLM调用。即使返回零条记忆，抽取预算已经发生，固定版本还可能保存近期messages；`infer=False` 的普通文本路径将非system消息按原文写入记忆并执行embedding。默认add为ADD-only，更正不能仅追加新说法后就认定旧说法已失效。[固定写入实现][mem0-core]、[近期消息存储][mem0-storage]
+
+任务按可信owner、原生item/来源ID及版本建立稳定身份，保存冻结正文/hash、策略版本、状态和返回memory IDs。自动采集与显式记忆工具应共用来源任务或记录覆盖关系，避免同一原话被两路重复add。steer新增item单独建任务；失败或中断的turn也可包含已可靠保存且获准采集的用户输入，写入不必固定等待最终回答成功。调用前重核当前授权和来源版本，已取消/失效的任务拒绝发布；unknown或部分写入按原任务核对。本地任务身份、文本去重及metadata均不使原版Mem0具备强幂等。
+
+原生item提交与任务建档之间的崩溃缺口，需由同事务入队或基于持久计划/原生item的可恢复扫描补齐；仅在commit后触发一次内存callback会丢任务。补偿仍复用同一来源身份，遵守删除/撤权状态。
+
+**本轮写任务可以先持久入队，实际add在首次检索快照冻结或可信skip成立后放行。** 这避免当前原话先进入Mem0，再被本轮首次检索当成历史。后续补查也应排除本轮来源，或在补查结束前继续延后写入；只有适配层具备可靠的来源标记及查询排除能力后，才放开同轮读写并行。仅附加 `source_message_id` 不会自动排除它；任意按文本相似删除候选也不能代替来源识别。
+
+### 6.4 每个turn和step的调用频率
+
+下面统计宿主对Mem0 OSS REST的逻辑调用，不统计重试、模型供应方或数据库内部请求。当前实现的Mem0调用为0；以下频率适用于完成接入后。
+
+| 动作 | 所在位置 | 频率及复用规则 |
+|---|---|---|
+| 初始检索或跳过决策 | Host首个主模型前 | 每有效turn一次；steer改变查询等情况创建新revision |
+| 自动首次 `POST /search` | Host上下文准备，Pi工具循环之前 | 通常0或1次；每个新revision另计 |
+| 后续主模型step或fallback | AgentLoop内的模型准入 | 复用实际快照并核当前可用性，不因重复Hook重新search |
+| 工具补查 `POST /search` | AgentLoop内的受控工具 | 0..N次，受工具/查询预算限制；每次结果另记依赖 |
+| 自动 `POST /memories`，infer=true | 持久任务worker，主循环之外 | 每个获准来源版本通常一个逻辑任务；实际分批/核对另记，不按step写入 |
+| 显式记忆或更正工具 | AgentLoop内受控调用 | 0..N次；与自动采集合并任务或记录覆盖；update/delete按明确目标执行 |
+| 来源镜像、业务Outbox及删除控制 | 各自可靠事件链 | 按来源/事件，不以是否search或turn成功作为统一开关 |
+| 本项目bundle validate | 每模型、依赖记忆的工具及交付关口 | 属于MemoryService目标合同，区别于search；Mem0原版没有等价接口 |
+
+例如一个turn有3个主模型step、一次自动召回、一次工具补查和一个后台抽取任务，通常是 **2次 `POST /search` ＋ 1次 `POST /memories`**；3个主模型step不会将其自动变成3次检索和3次写入。Mem0默认普通文本add内部还会检索旧记忆并调用抽取LLM，这些内部工作不等于宿主再次取得可入模的检索结果，费用需单独统计。[固定实现][mem0-core]
+
+### 6.5 Host与AgentLoop的接入时序
+
+当前顺序是：预分配ID → beforePrompt → 历史读取/水合及可能的compact → 原生user item和turn提交 → UserPromptSubmit观察 → engine.start。beforePrompt适合判断策略，其预分配ID尚不能作为可靠原生来源；新增可靠摄取接点以提交成功为界。历史与摘要的授权/来源门禁还应早于相关内容消费。[前置处理][agent-preflight]、[输入提交][agent-input-commit]
+
+下图展开待开发Runtime路线中检索成功或可信skip后的继续路径。为清楚表达时序，采用**可能有工具补查时将自动add延后至本turn结束**的保守安排；无补查且输入已可靠持久时，写任务可在首次快照冻结后独立执行。主Agent显式写入若影响同轮后续读取，须按新revision和可信来源排除处理。更正、撤权及完整交付门禁同时衔接[Hook与时序地图](agent-memory-hook-integration.md)中的目标设计。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant H as SessionHost
+    participant A as MemoryAdapter
+    participant P as Pi AgentLoop
+    participant W as 写入Worker
+    participant M as Mem0 OSS
+    H->>A: 初始读取决策与历史消费门禁
+    A->>A: 持久操作身份与策略决定
+    H->>H: 历史准备及必要压缩
+    H->>H: 提交原生消息和turn
+    H->>A: 新增可靠就绪接点，绑定持久消息
+    A->>A: 持久建任务，暂缓add
+    alt 需要历史且scope已确认
+        A->>M: POST /search
+        M-->>A: 记忆条目或成功空结果
+        A->>A: 冻结查询版本与证据快照
+    else 可信确定无需历史
+        A->>A: 持久skip及理由
+    end
+    A-->>H: 受控证据与实际依赖
+    H->>P: engine.start
+    loop 每个主模型step，fallback仍经过准入
+        P->>H: prepareModelStep
+        H->>A: 核当前授权及证据可用性，复用或按需刷新
+        A-->>H: 可用快照或阻断/重建要求
+        H-->>P: 受控模型上下文与准入结果
+        P->>P: 主模型推理
+        opt 主Agent请求memory_search
+            P->>H: 工具调用
+            H->>A: 绑定真实owner并核参数与预算
+            A->>M: POST /search
+            M-->>A: 补查记忆
+            A->>H: 保存工具回执及依赖
+            H-->>P: 工具结果进入下一step
+        end
+    end
+    P-->>H: 最终结果或失败/中断
+    H->>H: 持久终态，Stop通知收敛
+    W->>A: 按持久任务核来源、授权与放行条件
+    A-->>W: 允许处理该item及版本
+    W->>M: POST /memories，冻结原输入
+    M->>M: infer=true，提炼并存储记忆
+    M-->>W: results或失败/未知
+    W->>W: 持久状态与来源到记忆的映射
+```
+
+主体未明确时进入澄清/待准备状态，检索失败则按任务依赖决定安全降级或阻断；不能把这两种情况写成成功skip。进程崩溃后，队列从持久的来源与turn状态恢复放行条件，不能依赖Stop通知是否送达。当前UserPromptSubmit/PostToolUse没有正文，Stop只有outcome，均不承担唯一摄取入口。[observer类型][agent-observer-types]、[终态提交与Stop][agent-stop]
+
+### 6.6 需要改造的具体代码位置
+
+以下路径相对agent-service根目录，行号绑定6870e734；拟新增文件尚不存在。保持Host引擎中立，由runner装配具体Mem0客户端。
+
+| 现有位置 | 需要补齐什么 |
+|---|---|
+| [session/host.ts:183][agent-host-deps]，拟新增 `packages/core/src/memory/types.ts` | 类型化memory依赖、每turn/revision决策、证据快照及取消/就绪状态 |
+| [runner main.ts:877及1033][agent-runner-wiring] | 工具registry、Mem0 REST客户端、安全配置、worker生命周期与Host注入；模型不持有key |
+| [host.ts:2558及2762][agent-input-commit] | 前置策略与来源门禁；原生提交后可靠建任务/补偿绑定；Store事务或可恢复journal承接写入任务 |
+| [host.ts:3186/3254][agent-model-gate]、[engine/pi.ts:215][agent-pi-context]及 `context/assemble.ts` | 增加受控动态证据区、实际依赖和两条模型准入路径；保留messages不可任意改写的现有约束 |
+| [tools/builtin/index.ts:64][agent-builtin-tools]、runner registry及Host工具准入 | 注册受控memory工具或私有MCP桥，身份绑定、预算、来源与写入意图检查 |
+| [host.ts:3122][agent-tool-result] | 工具结果先可靠持久再入模，补查依赖和显式写入回执进入恢复状态 |
+| [host.ts:3812/3843][agent-steer] | steer新item的可靠任务身份；必要时刷新query revision，重复callback不重复计费 |
+| [host.ts:3974][agent-compaction]及 [PiSummariser][agent-summariser] | 自动/显式摘要、水合前的消费门禁，以及记忆派生依赖；不能只覆盖主模型 |
+| `packages/store/src/`、`packages/store/migrations/`及可信App仓储 | 持久决策/任务、来源映射、未知状态、恢复扫描与正式迁移；内存Map或未等待promise不足以恢复 |
+| [host.ts:4278][agent-stop]、delta/读取/SSE及来源失效设计11 | Stop用于收敛；另外实现交付门禁、取消、历史/摘要/cache/重放副本清理，接续现行生命周期合同 |
+
+Host与Pi当前都检查middleware前后的messages一致；现有 `memory-injection` 仅拼接静态system prefix/append。新增证据区须有明确类型与生命周期，不能靠放宽检查或把检索正文塞进静态配置完成。[Host检查][agent-model-gate]、[Pi检查][agent-pi-context]、[静态注入][agent-static-memory]
+
+现有Host仅在特定lifecycle/扩展/委派条件下注册 `prepareModelStep`，fallback内的lifecycle Hook也有启用条件。新增memory准入须覆盖启用记忆的普通请求和fallback请求，独立于现有lifecycle Hook开关；不能只在当前可选Hook分支里插入网络调用。[模型准入条件][agent-model-gate]
+
+### 6.7 Runtime工作包与实施顺序
 
 | 顺序 | 建议工作 | 当前源码落点 |
 |---|---|---|
@@ -241,6 +388,8 @@ Mem0自托管REST不直接提供本手册可用的MCP端点。若希望模型主
 | 独立Mem0 | 部署手册的只读、CRUD、infer:true抽取、重启持久化；单列模型预算 |
 | App POC | 固定无工具Agent、合成数据；跨session收益、两用户/两项目隔离、检索失败和冻结body重放 |
 | 写入队列 | 不把检索块/助手建议回写；部分写入、unknown、不重复派发及重启恢复 |
+| 决策与频率 | 历史问题/开放式问题/临时指令/确认语句/主体不明的固定样例；每turn初始决定、steer新revision、step/fallback复用和工具补查分别计数 |
+| 同轮读写 | 首次快照冻结前任务不调用add；无来源排除时补查前继续延后；自动与显式采集共用身份，更正不靠ADD-only解决 |
 | Runtime集成 | 首轮/多step、自动与显式摘要、工具补查、steer、迟到输出及SSE重放的依赖控制 |
 | 完整遗忘 | source→多memory、SQLite、实体、宿主历史/摘要/cache及备份恢复都验证 |
 
@@ -266,3 +415,20 @@ Mem0自托管REST不直接提供本手册可用的MCP端点。若希望模型主
 [agent-sdk]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/sdk/README.md
 [mem0-core]: https://github.com/mem0ai/mem0/blob/f1791daa86d469249c9b002f62644d58a1eb96a0/mem0/memory/main.py
 [mem0-auth]: https://github.com/mem0ai/mem0/blob/f1791daa86d469249c9b002f62644d58a1eb96a0/server/auth.py
+[mem0-add-doc]: https://docs.mem0.ai/core-concepts/memory-operations/add
+[mem0-storage]: https://github.com/mem0ai/mem0/blob/f1791daa86d469249c9b002f62644d58a1eb96a0/mem0/memory/storage.py
+[agent-pi-loop]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/engine/pi.ts#L55
+[agent-host-deps]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L183
+[agent-runner-wiring]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/apps/agent-runner/src/main.ts#L877
+[agent-preflight]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L2558
+[agent-input-commit]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L2762
+[agent-model-gate]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L3186
+[agent-pi-context]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/engine/pi.ts#L215
+[agent-static-memory]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/hooks/middleware.ts#L226
+[agent-builtin-tools]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/tools/builtin/index.ts#L64
+[agent-tool-result]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L3122
+[agent-steer]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L3812
+[agent-compaction]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L3974
+[agent-summariser]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/engine/pi.ts#L427
+[agent-observer-types]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/hooks/lifecycle-types.ts#L21
+[agent-stop]: https://github.com/zhgqwx-del/agent-service/blob/6870e7346d98ef193de51e8f328e1f967066da2a/packages/core/src/session/host.ts#L4278
