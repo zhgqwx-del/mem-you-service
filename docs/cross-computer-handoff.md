@@ -6,12 +6,12 @@
 
 **用 Git 克隆仓库，再用 Codex 打开即可核对现状和继续设计。** 当前仓库尚未交付独立 MemoryService 的可运行工程。执行 STDD 脚本、搭建服务或接入外部环境时，按相应任务准备依赖。
 
-2026-11-18 核查起点为干净的 `main / 6f8ced0663bdf50db608b3a45cbe79ab3259eb00`。本地 `origin/main` 和通过 `git ls-remote` 查询的 [GitHub 仓库](https://github.com/zhgqwx-del/mem-you-service) `main` 当时均指向该提交。这个 SHA 用于追溯本次核查。新电脑应使用交接时实际推送的分支和提交。
+换机以 [GitHub 仓库的 `main`](https://github.com/zhgqwx-del/mem-you-service/tree/main) 和实际 checkout 为准。STDD/SDD 从首次接入到本次升级的基线与验证证据见[第 40 节](#40-2026-11-18-stddsdd-接入)和[第 41 节](#41-2026-11-19-stddsdd-升级)。
 
 | 内容 | 2026-11-19 核查结果 |
 |---|---|
 | 当前设计 | V1.2 修订2。项目规则随根目录 `AGENTS.md` 交接，现行合同、审查及研究入口见[文档索引](README.md) |
-| STDD/SDD 协作 | 已接入 team 配置及 7 个 Codex 技能。克隆后可直接从[项目入口](stdd/project.md)接续，首个实施切片待确定 |
+| STDD/SDD 协作 | 已接入 team 配置及 7 个 Codex 技能，升级至上游 v1.5.0，见[升级记录](#41-2026-11-19-stddsdd-升级)。克隆后可从[项目入口](stdd/project.md)接续，首个实施切片待确定 |
 | 独立 MemoryService | 尚无服务源码、依赖清单/锁文件、应用配置样例、数据库迁移、启动入口或可执行的合同测试 |
 | 第三方材料 | 已有 agent-service 接入说明，以及 Mem0 和 Hindsight 各自的单机和生产部署样例，含 Docker、Compose、环境样例、Mem0 手动检查脚本和 Hindsight 扩展初始化 SQL |
 | 本仓库运行数据 | Git 中无本服务数据库、聊天导出、模型权重或评测数据包。外部服务的实际部署及数据另按需核对 |
@@ -48,7 +48,7 @@ Codex 会读取仓库的 `AGENTS.md`。Codex Memories 按机器使用本地记�
 | 每次必须遵守的项目规则 | 根目录 `AGENTS.md`，保持简短 |
 | 业务边界、协议、状态机及验收 | `docs/spec-v1/`，唯一现行合同 |
 | 变更草稿、实施方案及验收证据 | [STDD/SDD 项目入口](stdd/project.md)及 `changes/<id>/`，引用现行合同 |
-| 项目配套技能及初始化模板 | 7 个 Codex 技能与 [init-stdd 分发包](../.agents/skills/init-stdd/SKILL.md)均随仓库交接。运行脚本所需环境见[研发工作流](stdd/workflows.md#脚本) |
+| 项目配套技能及初始化模板 | 7 个 Codex 技能、[init-stdd 分发包](../.agents/skills/init-stdd/SKILL.md)和版本记录 [`.stdd-version`](../.stdd-version)随仓库交接。运行环境与升级方式见[研发工作流](stdd/workflows.md) |
 | 为什么作出取舍 | 05/07审查记录及带版本的 `research/` |
 | 当前做到哪里、如何运行、尚缺什么 | 本交接说明；后续实现时及时更新 |
 | 本次准备做什么 | 新聊天Prompt的“本次需求” |
@@ -786,13 +786,26 @@ git diff --check
 - 从[项目入口](stdd/project.md)进入四个角色的协作模板和[首个变更草稿](../changes/001-first-slice/change.md)。现行合同统一在 [spec-v1](spec-v1/README.md)。04 的 D1「合同与基础来源」是候选，实施目标、范围及技术方案待确定。
 - 实际执行 `git diff --check`、Markdown 导航及合同链接检查，并核对了合同、第三方手册和研究目录的 Git 差异。用 `python3 -B scripts/git_range.py HEAD~1 HEAD` 验证本地提交范围，在临时目录运行 `new_change.py` 验证七份变更文档生成及重复 ID 拒绝。默认 `check_traceability.py` 报告零项，因为它读取 `specs/**/spec.md` 格式。项目验收按 04 的场景与实际测试证据记录。
 
-本轮交付为本地未提交的协作配置和文档。独立 MemoryService 的工程、运行命令与合同测试仍待建立，服务验收待运行。
+接入阶段完成时，协作配置和文档留在本地工作区。后续提交和复核见第 40.1 节。独立 MemoryService 的工程、运行命令与合同测试当时仍待建立。
 
 ### 40.1 2026-11-19 STDD/SDD 与换机交接复核
 
-第 39–40 节的未提交状态是整理阶段快照。此轮交付范围为本地 `init-stdd` 分发包、已安装的配套技能、项目协作骨架及换机交接文档。交接时以包含本节的提交和 GitHub `main` 的实际状态为准。
+第 39–40 节的未提交状态是整理阶段快照。首次接入的 `init-stdd` 分发包、配套技能、协作骨架和换机交接文档随 `1c07eb15f7814742c8d03d621d243acd2910764a` 合入 `main`。该提交也是本次升级的项目基线。
 
 - 接续 Prompt 的长短版补齐 STDD 入口，研发工作流记录脚手架的 Python 版本要求。根 README 的两处原电脑源码链接改指已核对的 agent-service 固定提交。换机时可从仓库中的项目入口和技能继续。
 - 本地复核了 89 份交付文件。Markdown 仓内链接、标题锚点和代码围栏、Python 3.9 语法兼容检查、克隆示例的 `sh -n` 及 `git diff --check` 通过。已安装技能和脚本与分发包对应模板逐字节一致。
 - 在临时目录验证 `spec`、`team + codex`、`demo` 生成和重跑、保留已有文件、变更文档生成及拒绝重复 ID。仅在教学示例目录执行 `make check`，4 个教学用例通过。MemoryService 的验收证据按 04 记录，D1 仍为待确认候选，服务验收待执行。
 - 提交前执行 `git -c http.proxy= -c https.proxy= fetch --no-tags origin main`，基线相对远端分叉为 0/0。提交目标为 `origin/main`。
+
+## 41 2026-11-19 STDD/SDD 升级
+
+- 从干净的 `main / 1c07eb15f7814742c8d03d621d243acd2910764a` 开始。本地初始化分发包的 49 份文件与上游 `v1.2.1` 逐字节一致。采用上游 `v1.5.0 / db2909e66e5229b09d0f94313b9d7bda798f966e`。该分发包与本次查看的上游 `main / 31bcacffbe7b5f32282062aae4b6ac8ab6408afb` 及 GitHub 最新发布附件一致。 [上游发布](https://github.com/zhgqwx-del/stdd-sdd/releases/tag/v1.5.0)
+- 使用新版 `init_stdd.py` 的 `--upgrade --from-bundle <旧版 ZIP> --dry-run` 预演，随后在临时副本实际升级 12 项。合并 `AGENTS.md`、`docs/engineering.md` 和 `docs/stdd/workflows.md` 中的 Git 同步与验收说明，同步仓库内的完整 `init-stdd/`，复核后以 `--record-version v1.5.0` 写入 [`.stdd-version`](../.stdd-version)。后续升级命令见[研发工作流](stdd/workflows.md#升级-stddsdd-工具)。
+- 上游 `python3 -B -m unittest discover -s tests -v` 的 6 项升级测试及 `python3 -B scripts/check_init_stdd_release.py --tag v1.5.0` 通过。临时副本用 `new_change.py --roles --design` 验证七份文档生成、新验收字段及重复 ID 拒绝。
+- 实际工作区复跑 `python3 -B .agents/skills/init-stdd/scripts/init_stdd.py . --upgrade --dry-run`，结果为 4 项保留、24 项一致。`git diff --check`、104 处本地 Markdown 链接、Python 3.9 语法和分发文件一致性检查通过。
+- MemoryService 的现行合同与首个变更草稿沿用原文。D1 仍是待确认的候选，feature 开发暂缓。`check_traceability.py` 的默认格式检查报告零项，服务验收仍待执行。
+
+### 41.1 2026-11-19 提交前复核
+
+- 以包含本节的升级提交交接。提交前执行 `git -c http.proxy= -c https.proxy= fetch --no-tags origin refs/heads/main:refs/remotes/origin/main`。当时本地 `HEAD` 与 `origin/main` 均为 `1c07eb15f7814742c8d03d621d243acd2910764a`，分叉计数为 0/0，交付目标为 `origin/main`。
+- 从项目基线恢复临时副本，用 `v1.2.1` ZIP 离线重走升级流程，再次核对 12 项自动更新与 3 份需合并文档。工作区升级预演再次得到 4 项保留、24 项一致。上游 6 项升级测试和发布包检查重跑通过。交接以及相关入口的 207 处仓内链接、标题锚点、Markdown 围栏、克隆示例语法和 `git diff --check` 通过。

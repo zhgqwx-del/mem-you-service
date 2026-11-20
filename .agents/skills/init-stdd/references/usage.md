@@ -24,6 +24,8 @@ python3 -B "$stdd_script" "$stdd_target"
 
 默认 `team` + `all` 会把项目文档、变更模板、三个脚本、PR 模板和三个工具的七个研发技能放入目标项目。`init-stdd` 留在解压目录，可复用。脚本生成协作骨架和变更草稿。准备开始首个需求时，用 `stdd-start` 核对现有行为、记录接入基线，并完善生成的首个变更草稿。 [已有项目接入流程](existing-project.md)
 
+首次初始化成功后，脚本把包的发布标签写入项目根目录的 `.stdd-version`。将这个文件随项目提交，团队成员可用同一个版本作为升级基准。
+
 ## 方式二：在项目里安装并调用技能
 
 如果希望 Agent 根据目标起草规格和验收，可以将完整的 `init-stdd/` 解压到目标项目的技能目录。在目标项目根目录执行以下命令。Codex 用 `.agents/skills`，Claude Code 换成 `.claude/skills`，Qoder 换成 `.qoder/skills`。已经解压到该目录的项目可以直接调用。
@@ -83,7 +85,7 @@ flowchart TD
     Delivery["$stdd-delivery<br/>先写验收测试，再实现并复跑"]
     Report["$stdd-test-report<br/>把实际结果写入 verification.md"]
     Review["$stdd-review<br/>核对代码、规格和受测证据"]
-    Wrap["$stdd-wrap<br/>提交前检查、归档核对链接<br/>准备 PR 或交接"]
+    Wrap["$stdd-wrap<br/>刷新目标、按策略同步并复测<br/>归档、PR 或交接"]
     Done["按项目流程合入或交接"]
     Release["$stdd-release-notes<br/>按版本范围整理发布说明或迭代总结"]
 
@@ -134,7 +136,11 @@ python3 -B scripts/init_stdd.py ../stdd-training --profile demo
 
 `stdd-start` 默认先写简短实施方案，说明修改入口、关键取舍和如何验收。方案确认后，`stdd-delivery` 先写测试，再实现和复跑。已经有同范围确认记录时可以直接引用。
 
-基线、远端同步、分支创建及合入策略记录在仓库规则中。初始化后的 `docs/stdd/git-workflow.md` 提供配置参考。`stdd-wrap` 串联项目提交前检查，按约定选择 rebase 或 squash，并记录实际受测候选。
+基线、真实合入目标、远端和同步策略记录在 `change.md` 或仓库规则中。功能分支的 upstream 不一定是合入目标。`stdd-start` 以远端为基线时先刷新并记录 SHA，离线时注明本地来源和未刷新状态。
+
+准备提交或 PR 时，`stdd-wrap` 默认 fetch 真实目标并固定本轮 SHA，按提交关系跳过、快进或 rebase。未发布的本次提交和项目允许改写的个人分支适用 rebase；共享历史、脏工作区和已有 Git 操作按初始化后的 `docs/stdd/git-workflow.md` 处理。语义冲突保留现场并列出待决定事项。同步及冲突处理完成后，同步发生变化的依赖，重跑定向验收和项目要求的检查，再记录受测候选及交付状态。已有项目规定 merge、仅中途交接或没有远端时，沿用实际范围并注明状态。
+
+七个技能可由 Agent 直接执行，不依赖参考项目的 `ptal`、固定任务号、Bun 或发布平台。squash、提交、推送和创建 PR 沿用项目策略及已有任务授权。`stdd-review` 固定目标与候选版本并从候选读取代码；`stdd-test-report` 核对用例数量和旧证据版本；缺陷诊断记录资料来源与复现状态，版本说明区分快照差异和时间窗内的合入记录。
 
 ## 讨论与架构决策
 
@@ -169,7 +175,7 @@ python3 -B -m unittest discover -s tests -t . -v
 
 其他支持 `SKILL.md` 的工具可传宿主规定的项目相对目录，例如 `--skills-dir .my-agent/skills`。如果工具没有技能发现功能，用 `--agent portable`，从 `docs/stdd/workflows.md` 找到文件，明确让它读取相应 `SKILL.md` 并按步骤执行。它需要能访问项目文件，执行脚本时还需要终端权限。各工具的技能扫描方式由其产品支持决定。
 
-已经用旧版本初始化的项目，可以用更新后的分发包补齐后续技能。以下命令可补齐混用团队的技能目录，也可把 `all` 换成某个工具。
+已初始化的项目若要补装缺失技能或接入新的 Agent，可以用 `--skills-only`。以下命令可补齐混用团队的技能目录，也可把 `all` 换成某个工具。
 
 ```sh
 python3 -B scripts/init_stdd.py /path/to/existing-repo --skills-only --agent all --dry-run
@@ -178,6 +184,31 @@ python3 -B scripts/init_stdd.py /path/to/existing-repo --skills-only --agent all
 
 `team` 或 `demo` 项目后续可用 `stdd-start`，也可运行 `python3 -B scripts/new_change.py 002-next-change "下一项变更" --roles` 为下一项变更生成四角色文档。需要单独的技术设计时叠加 `--design`。现行规格检查覆盖 `specs/` 中已交付的行为，草稿在变更评审时核对。
 
-升级已有 STDD 项目时，先更新 `init-stdd` 技能包，再把新版七个研发技能、任务模板和 Git 约定按需合入项目。初始化器会保留同名文件，可在临时目录生成新版项目作为比对样本。
-
 生成器会将目标中不同内容的同名文件标为 `KEEP`，内容相同标为 `UNCHANGED`，无法作为目录使用的路径标为 `BLOCKED`。重跑可补缺失项。目标子路径上的符号链接会保留并跳过。已有 `AGENTS.md` 或 README 时，可以根据现行写法增加指向 `docs/stdd/project.md` 的入口。`spec` 和 `team` 可以接入已有项目，应用代码、测试和交付命令沿用当前仓库。
+
+## 升级已初始化的项目
+
+新版本解压到项目外，从新包运行升级。脚本读取项目根目录的 `.stdd-version`，从 GitHub 下载该发布标签的 ZIP 用于比对。上次采用的版本和当前包相同时，脚本直接用当前包作基准。先预览，再执行同一命令。
+
+```sh
+stdd_target="/path/to/existing-project"
+stdd_script="/path/to/new-bundle/init-stdd/scripts/init_stdd.py"
+python3 -B "$stdd_script" "$stdd_target" --upgrade --dry-run
+python3 -B "$stdd_script" "$stdd_target" --upgrade
+```
+
+旧项目可以用 `python3 -B "$stdd_script" "$stdd_target" --record-version v1.4.0` 补录。把示例标签换成已确认的实际版本。重复运行普通初始化或 `--skills-only` 时，升级基准仍由项目的版本记录决定。已有旧 ZIP 时，可用 `--upgrade --from-bundle /path/to/previous/init-stdd.zip` 指定本地包，优先级高于版本记录。 [历史发布](https://github.com/zhgqwx-del/stdd-sdd/releases)
+
+升级默认识别项目内的 Codex、Claude Code、Qoder、便携技能目录，以及工作流中链接的自定义目录。可以用 `--agent codex` 等选项指定范围，自定义布局也可显式传原来的 `--skills-dir`。仅升级共用文档和模板时传 `--profile spec`。升级范围包括共用工程约定、`docs/stdd/templates/`、已选目录的研发技能及其配套工作流、脚本和 PR 模板。业务规格、在途变更和历史验收证据继续由项目维护。
+
+| 状态 | 含义 |
+| --- | --- |
+| `UPDATE` | 项目文件和旧包生成内容逐字节一致，新版有变动，执行时更新 |
+| `CREATE` | 新版新增的文件在项目中也缺失，执行时新增 |
+| `MERGE` | 新版有变动，项目已有另一份内容，依据预览里的旧版到新版差异手动合并 |
+| `KEEP` | 项目有定制，该文件的上游内容相同 |
+| `UNCHANGED` | 项目文件已与新版一致，或上游和项目均已移除 |
+| `MISSING` / `RETIRED` | 项目已移除旧文件，或新版退役了项目仍保留的文件，按需复核 |
+| `BLOCKED` / `CHANGED` | 路径受阻，或执行时发现项目内容有变动，处理后重新预览 |
+
+预览显示 `UPDATE`、`CREATE`、`MERGE` 的上游文本差异。完整升级成功后，脚本把新版标签写入 `.stdd-version`。如果存在待合并、受阻或执行中变化的路径，或升级范围排除了已安装的技能目录，脚本会保留原有基准。处理完差异后可重新运行升级，或运行项目检查后用 `--record-version` 确认实际采用的新版标签。若找不到可信的旧包，用新版在临时目录生成同配置的参考项目，逐项合并并确认采用的版本。

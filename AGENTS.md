@@ -3,7 +3,7 @@
 - 使用中文沟通。新会话先读 `docs/cross-computer-handoff.md`；跨电脑首次接手可使用 `docs/continuation-prompt.md`。
 - 先核对当前 checkout、工作区修改和实际文件。交接说明是有日期的快照，不能用旧快照覆盖后续实现，也不能假装拥有旧会话记忆。
 - 现行设计入口为 `docs/spec-v1/README.md`。00–04是核心合同；06中的原生身份/生命周期共享细则适用于首发A，启用历史扫描与任务控制时另执行其扩展要求。05/07解释决策，不另定义接口。
-- STDD/SDD 协作从 `docs/stdd/project.md` 开始。变更草稿、实施方案和验收证据归入 `changes/`，引用现行合同条款与 04 的场景编号。
+- STDD/SDD 协作从 `docs/stdd/project.md` 开始。变更草稿、实施方案和验收证据归入 `changes/`，引用现行合同条款与 04 的场景编号。记录真实合入目标，准备提交或 PR 时按 `docs/stdd/git-workflow.md` 刷新目标、同步并复验。
 - `docs/独立记忆服务技术与产品方案.md`、`docs/点滴demo调用链与完备性补充.md` 及 `research/` 是历史依据，不以其中旧接口替代现行合同。
 - MemoryService负责来源镜像、记忆证据、召回及生命周期；正式记录和精确统计归产品后端。实现范围及A/B/C切片以现行合同为准。
 - 独立 MemoryService 的实现状态见交接说明第 1 节，以实际文件和命令核对。Mem0/Hindsight 部署样例属于第三方手册。

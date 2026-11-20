@@ -29,7 +29,7 @@ python3 -B scripts/init_stdd.py /path/to/existing-repo \
 
 检查 `CREATE`、`KEEP`、`UNCHANGED` 和 `BLOCKED`。核对范围后用相同参数去掉 `--dry-run`。生成器会保留已有同名文件。使用仓库现有的规格、测试和 CI 约定，按需为现有 README 或 `AGENTS.md` 补一条指向 `docs/stdd/project.md` 的导航。路径冲突时依据项目约定选入口，并在交付说明中列出仍受阻的内容。
 
-已完成 STDD 接入，只需为新的编码工具补技能目录时，使用 `--skills-only` 并选择所需 Agent。参数及现有文件处理见[初始化器用法](usage.md)。
+已完成 STDD 接入，只需为新的编码工具补技能目录时，使用 `--skills-only` 并选择所需 Agent。合入新版脚手架用新版脚本预览 [`--upgrade`](usage.md#升级已初始化的项目)。旧项目可用 `--record-version` 补录已确认的发布标签。
 
 ## 4. 起草并交接首个变更
 
