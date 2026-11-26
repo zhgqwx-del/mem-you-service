@@ -4,7 +4,7 @@
 
 **新手阅读或会议介绍，直接从[快速阅读与会议分享导航](docs/spec-v1/README.md#0-新手阅读与会议分享)开始**：提供20–30分钟阅读路线和15分钟分享选段。下面的调研正文适合按需追溯背景。
 
-当前整体方案与开发入口是[独立记忆服务 V1.2 修订2整体方案与开发入口](docs/spec-v1/README.md)。已结合点滴 demo、现有 agent-service 和前期调研，细化服务边界、Agent 调用时序、数据模型、API、状态机、故障恢复及评测合同。[整体审查记录](docs/spec-v1/07-v1.2-review.md)保留修订1取舍，并补记2026-10-28对必要约束、首次读取授权、擦除后有序消费、产品Outbox及验收口径的修订；A首发与B/C后置范围不变。**独立 MemoryService 仍处于规格阶段，服务实现和运行验收待完成。**
+当前整体方案与开发入口是[独立记忆服务 V1.2 修订2整体方案与开发入口](docs/spec-v1/README.md)。已结合点滴 demo、现有 agent-service 和前期调研，细化服务边界、Agent 调用时序、数据模型、API、状态机、故障恢复及评测合同。[整体审查记录](docs/spec-v1/07-v1.2-review.md)保留修订1取舍，并补记2026-10-28对必要约束、首次读取授权、擦除后有序消费、产品Outbox及验收口径的修订；A首发与B/C后置范围不变。**Memory D1 首段已在任务工作树完成本地契约验收。** 使用 Node.js 24 和 PostgreSQL 17，服务、迁移及复跑命令见[首段验收计划](changes/001-first-slice/test-plan.md)。完整 D1 和真实产品接入按现行合同推进。
 
 换电脑时按[开发交接说明](docs/cross-computer-handoff.md)克隆并用 Codex 打开仓库根目录，再把[接续 Prompt](docs/continuation-prompt.md)发给新聊天。交接说明也列出按需准备的外部源码、私密配置和运行环境。
 

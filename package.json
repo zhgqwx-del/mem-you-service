@@ -1,0 +1,31 @@
+{
+  "name": "mem-you-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@12.5.1",
+  "scripts": {
+    "start": "node src/main.ts",
+    "db:migrate": "node src/db.ts",
+    "typecheck": "tsc --noEmit",
+    "test:contract": "node --test test/contract/*.test.ts",
+    "record:start": "node apps/record-service/src/main.ts",
+    "record:db:migrate": "node apps/record-service/src/db.ts",
+    "record:outbox": "node apps/record-service/src/worker.ts",
+    "test:record:unit": "node scripts/run-record-check.ts unit",
+    "test:record:contract": "node scripts/run-record-check.ts contract"
+  },
+  "dependencies": {
+    "jose": "6.2.12",
+    "pg": "8.22.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6",
+    "@types/pg": "8.20.0",
+    "typescript": "5.9.3"
+  }
+}

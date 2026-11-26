@@ -1,10 +1,14 @@
 # 跨电脑开发交接说明
 
-最近核对日期为 2026-11-19（America/Los_Angeles）。换电脑时按第 1–7 节上手，再将[接续 Prompt](continuation-prompt.md)发给新聊天。第 8 节起是按日期保留的核查与交付记录。后续以实际 checkout 和[现行合同](spec-v1/README.md)为准。
+最近核对日期为 2026-11-25（America/Los_Angeles）。换电脑时按第 1–7 节上手，再将[接续 Prompt](continuation-prompt.md)发给新聊天。第 8 节起是按日期保留的核查与交付记录。后续以实际 checkout 和[现行合同](spec-v1/README.md)为准。
 
 ## 1 当前到底交付了什么
 
-**用 Git 克隆仓库，再用 Codex 打开即可核对现状和继续设计。** 当前仓库尚未交付独立 MemoryService 的可运行工程。执行 STDD 脚本、搭建服务或接入外部环境时，按相应任务准备依赖。
+2026-11-25，Mono `DIANDI-001` 工作树在 `mono/DIANDI-001 / 496dac7183f15ab4858b1a94db091dafd27868d1` 完成首个 D1 子集。已提供独立 HTTP 服务及显式迁移，隔离 PostgreSQL 17.12 上的 7 条场景全部通过。范围包括可信来源写入、同键回执、有序导入、取证屏障及重启恢复。完整 D1 和真实产品接入分别跟踪。 [D1 实施方案](../changes/001-first-slice/tasks.md) · [验收记录](../changes/001-first-slice/verification.md)
+
+**先核对实际分支和工作树。** 当前首段实现留在 Mono 任务工作树，依赖锁文件随候选保留。按[首段验收计划](../changes/001-first-slice/test-plan.md)准备专用 PostgreSQL 17 和合成资料。
+
+DIANDI-001 的独立产品入口 `apps/record-service` 已用本地签名发行器、实际 Memory 和隔离 PostgreSQL 通过 AC08。仓内工作流已加入 `record-service-ac08`，远端候选运行和分支必需检查设置随发布核对。 [启动与身份配置](../changes/001-first-slice/record-service-design.md#启动和运行身份) · [产品侧验收](../changes/001-first-slice/verification.md#ac08-recordservice-交付验收)
 
 换机以 [GitHub 仓库的 `main`](https://github.com/zhgqwx-del/mem-you-service/tree/main) 和实际 checkout 为准。STDD/SDD 从首次接入到本次升级的基线与验证证据见[第 40 节](#40-2026-11-18-stddsdd-接入)和[第 41 节](#41-2026-11-19-stddsdd-升级)。
 
