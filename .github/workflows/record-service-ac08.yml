@@ -1,0 +1,64 @@
+name: RecordService AC08
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  record-service-ac08:
+    name: record-service-ac08
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ac08_ci
+          POSTGRES_PASSWORD: ac08_disposable_ci_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ac08_ci -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Bind evidence to candidate SHA
+        run: |
+          mkdir -p "$RUNNER_TEMP/record-service-ac08"
+          git rev-parse HEAD > "$RUNNER_TEMP/record-service-ac08/commit.txt"
+      - name: Typecheck
+        run: |
+          set -o pipefail
+          pnpm run typecheck 2>&1 | tee "$RUNNER_TEMP/record-service-ac08/typecheck.txt"
+        shell: bash
+      - name: Identity and authorization unit tests
+        run: |
+          set -o pipefail
+          pnpm run test:record:unit 2>&1 | tee "$RUNNER_TEMP/record-service-ac08/unit.txt"
+        shell: bash
+      - name: Dual-user PostgreSQL and Memory HTTP contracts
+        env:
+          RECORD_TEST_DATABASE_URL: postgresql://ac08_ci:ac08_disposable_ci_only@127.0.0.1:5432/postgres
+        run: |
+          set -o pipefail
+          pnpm run test:record:contract 2>&1 | tee "$RUNNER_TEMP/record-service-ac08/contract.txt"
+        shell: bash
+      - name: Preserve candidate test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: record-service-ac08
+          path: ${{ runner.temp }}/record-service-ac08/
+          if-no-files-found: warn

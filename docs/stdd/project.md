@@ -8,7 +8,7 @@
 
 ## 首个实施切片
 
-[首个变更草稿](../../changes/001-first-slice/change.md)的目标待定。现行合同给出的候选起点是 D1「合同与基础来源」。独立 MemoryService 目前处于规格阶段，服务工程和验收入口待建立。 [交付顺序与责任](../spec-v1/04-evaluation-and-acceptance.md#9-交付顺序与责任) · [开发交接说明](../cross-computer-handoff.md)
+[首个变更草案](../../changes/001-first-slice/change.md)已选定 D1「合同与基础来源」的首个子集，覆盖来源写入、回执、有序导入及恢复。[独立 HTTP 契约验收](../../changes/001-first-slice/verification.md)已在隔离 PostgreSQL 上通过。 [交付顺序与责任](../spec-v1/04-evaluation-and-acceptance.md#9-交付顺序与责任) · [开发交接说明](../cross-computer-handoff.md)
 
 ## 角色入口
 
